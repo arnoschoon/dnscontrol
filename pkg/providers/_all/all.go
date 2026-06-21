@@ -14,6 +14,7 @@ import (
 	_ "github.com/DNSControl/dnscontrol/v4/providers/bunnydns"
 	_ "github.com/DNSControl/dnscontrol/v4/providers/cloudflare"
 	_ "github.com/DNSControl/dnscontrol/v4/providers/cloudns"
+	_ "github.com/DNSControl/dnscontrol/v4/providers/cloudpress"
 	_ "github.com/DNSControl/dnscontrol/v4/providers/cnr"
 	_ "github.com/DNSControl/dnscontrol/v4/providers/cscglobal"
 	_ "github.com/DNSControl/dnscontrol/v4/providers/desec"
