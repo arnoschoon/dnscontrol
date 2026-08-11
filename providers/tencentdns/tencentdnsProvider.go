@@ -6,19 +6,26 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DNSControl/dnscontrol/v4/models"
-	"github.com/DNSControl/dnscontrol/v4/pkg/diff2"
-	"github.com/DNSControl/dnscontrol/v4/pkg/providers"
+	"github.com/DNSControl/dnscontrol/v5/models"
+	"github.com/DNSControl/dnscontrol/v5/pkg/diff2"
+	"github.com/DNSControl/dnscontrol/v5/pkg/providers"
 	dnspod "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod/v20210323"
 )
 
-const defaultTTL = uint32(600)
+const (
+	defaultTTL          = uint32(600)
+	defaultRecordLine   = "默认"
+	defaultRecordLineID = "0"
+	metaRecordLine      = "tencentdns_line"
+	metaRecordLineID    = "tencentdns_line_id"
+	metaRecordWeight    = "tencentdns_weight"
+)
 
 var features = providers.DocumentationNotes{
-	providers.CanUseAlias:            providers.Can("DNSPod doesn't natively support the ALIAS record type."),
+	providers.CanUseAlias:            providers.Can("Enable CNAME flattening for ALIAS to work at the apex. See https://docs.dnspod.com/dns/cname-flattening/"),
 	providers.CanGetZones:            providers.Can(),
 	providers.CanUseCAA:              providers.Can(),
-	providers.CanUsePTR:              providers.Can(),
+	providers.CanUsePTR:              providers.Cannot(),
 	providers.CanUseSRV:              providers.Can(),
 	providers.DocCreateDomains:       providers.Can(),
 	providers.DocDualHost:            providers.Can("Tencent Cloud allows full management of apex NS records"),
@@ -172,7 +179,7 @@ func (p *tencentdnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Rec
 		if *r.Status != "ENABLE" {
 			continue
 		}
-		rc, err := nativeToRecord(r, dc.Name)
+		rc, err := nativeToRecord(r, dc)
 		if err != nil {
 			return nil, err
 		}
@@ -189,6 +196,51 @@ func prepDesiredRecords(dc *models.DomainConfig, minTTL uint32) {
 	}
 }
 
+// recordLineIDsByName returns only unambiguous line name-to-ID mappings.
+// The DNSPod default line always has ID 0.
+func recordLineIDsByName(existingRecords models.Records) map[string]string {
+	lineIDsByName := map[string]string{defaultRecordLine: defaultRecordLineID}
+	ambiguous := make(map[string]bool)
+	for _, rec := range existingRecords {
+		line, lineID := recordLineMetadata(rec)
+		if line == "" || lineID == "" || line == defaultRecordLine || ambiguous[line] {
+			continue
+		}
+		if knownID, ok := lineIDsByName[line]; ok && knownID != lineID {
+			delete(lineIDsByName, line)
+			ambiguous[line] = true
+			continue
+		}
+		lineIDsByName[line] = lineID
+	}
+	return lineIDsByName
+}
+
+// recordMetadataComparable returns a provider-specific comparison function
+// that makes DNSPod's record line and weight part of a record's identity.
+// DNSPod returns both a line name and an ID, while users may configure either
+// one. Unambiguous line names are normalized to their IDs before diffing.
+func recordMetadataComparable(existingRecords models.Records) diff2.ComparableFunc {
+	lineIDsByName := recordLineIDsByName(existingRecords)
+
+	return func(rec *models.RecordConfig) string {
+		line, lineID := recordLineMetadata(rec)
+		if lineID == "" {
+			lineID = lineIDsByName[line]
+		}
+		lineComparable := "line=" + line
+		if lineID != "" {
+			lineComparable = "line_id=" + lineID
+		}
+
+		weight := comparableRecordWeight(rec)
+		if weight == "" {
+			return lineComparable
+		}
+		return lineComparable + " weight=" + weight
+	}
+}
+
 func (p *tencentdnsProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, existingRecords models.Records) ([]*models.Correction, int, error) {
 	var corrections []*models.Correction
 
@@ -199,7 +251,7 @@ func (p *tencentdnsProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, 
 	prepDesiredRecords(dc, minTTL)
 
 	// Tencent Cloud is a "ByRecord" API.
-	changes, actualChangeCount, err := diff2.ByRecord(existingRecords, dc, nil)
+	changes, actualChangeCount, err := diff2.ByRecord(existingRecords, dc, recordMetadataComparable(existingRecords))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -221,11 +273,12 @@ func (p *tencentdnsProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, 
 			})
 		case diff2.CHANGE:
 			rc := change.New[0]
-			recordID := *(change.Old[0].Original.(*dnspod.RecordListItem).RecordId)
+			previous := change.Old[0]
+			recordID := *(previous.Original.(*dnspod.RecordListItem).RecordId)
 			corrections = append(corrections, &models.Correction{
 				Msg: msgs,
 				F: func() error {
-					return p.client.modifyRecord(domainName, recordToModifyRequest(rc, recordID))
+					return p.client.modifyRecord(domainName, recordToModifyRequest(rc, recordID, previous))
 				},
 			})
 		case diff2.DELETE:
@@ -280,7 +333,9 @@ func normalizeNameserverSet(nameservers []string) []string {
 	return normalized
 }
 
-func (p *tencentdnsProvider) EnsureZoneExists(domainName string, metadata map[string]string) error {
+func (p *tencentdnsProvider) EnsureZoneExists(dc *models.DomainConfig) error {
+	domainName := dc.Name
+
 	request := dnspod.NewCreateDomainRequest()
 	request.Domain = &domainName
 	_, err := p.client.dnspodClient.CreateDomain(request)

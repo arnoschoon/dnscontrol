@@ -3,13 +3,13 @@
 echo ========== go fmt
 go fmt ./...
 
-if [[ -x node_modules/.bin/prettier ]]; then
+if [ -x node_modules/.bin/prettier ]; then
   echo ========== prettier
   node_modules/.bin/prettier --write pkg/js/helpers.js
 fi
 
-echo ========== bin/fmtjson
-bin/fmtjson $(find . -path ./.vscode -prune -o -type f -name "*.json" ! -name "package-lock.json" -print)
+echo ========== bin/fmtjson-all.sh
+bin/fmtjson-all.sh
 
 # dnsconfig.js-compatible files:
 echo ========== fmt parse_tests
@@ -37,3 +37,8 @@ if command -v staticcheck >/dev/null 2>&1; then
 else
   echo "staticcheck not found, skipping"
 fi
+
+# NOTE:
+# This is one way to make sure Unicode chars haven't crept into pkg/js/parse_tests
+# pcre2grep --color='auto' -n '[^\x00-\x7F]' $(find * . -type f -name \*.json)
+

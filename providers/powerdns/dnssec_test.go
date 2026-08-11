@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DNSControl/dnscontrol/v4/models"
+	"github.com/DNSControl/dnscontrol/v5/models"
 	pdns "github.com/mittwald/go-powerdns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,9 +14,8 @@ import (
 func TestGetDNSSECCorrectionsSkipsCryptokeysWhenAutoDNSSECUnset(t *testing.T) {
 	dsp := &powerdnsProvider{}
 
-	corrections, err := dsp.getDNSSECCorrections(&models.DomainConfig{
-		Name: "example.com",
-	})
+	dc := models.MustNewDomainConfig("example.com")
+	corrections, err := dsp.getDNSSECCorrections(dc)
 
 	require.NoError(t, err)
 	assert.Empty(t, corrections)
@@ -37,10 +36,9 @@ func TestGetDNSSECCorrectionsIgnoresMissingCryptokeysEndpoint(t *testing.T) {
 		ServerName: "localhost",
 	}
 
-	corrections, err := dsp.getDNSSECCorrections(&models.DomainConfig{
-		Name:       "example.com",
-		AutoDNSSEC: "on",
-	})
+	dc := models.MustNewDomainConfig("example.com")
+	dc.AutoDNSSEC = "on"
+	corrections, err := dsp.getDNSSECCorrections(dc)
 
 	require.NoError(t, err)
 	assert.Empty(t, corrections)

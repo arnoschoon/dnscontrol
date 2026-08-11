@@ -27,8 +27,8 @@ providers/gandiv5 @TomOnTime
 providers/gcloud @riyadhalnur
 providers/gcore @xddxdd
 providers/gidinet @zupolgec
+providers/gigahost @jochristian
 providers/hedns @rblenkinsopp
-providers/hetzner @das7pad
 providers/hetznerv2 @das7pad
 providers/hostingde @juliusrickert
 providers/huaweicloud @huihuimoe
@@ -47,8 +47,10 @@ providers/netbird @yzqzss
 providers/netcup @kordianbruck
 providers/netlify @SphericalKat
 providers/netnod @Netnod
+providers/nexdns @nexdns
 providers/ns1 @costasd
 # providers/opensrs NEEDS VOLUNTEER
+providers/openwrt @huskyistaken
 providers/oracle @kallsyms
 providers/ovh @masterzen
 providers/packetframe @hamptonmoore
@@ -58,6 +60,7 @@ providers/realtimeregister @PJEilers
 providers/route53 @tresni
 providers/rwth @mistererwin
 providers/sakuracloud @ttkzw
+providers/scaleway @alessiopcc
 # providers/softlayer NEEDS VOLUNTEER
 providers/tencentdns @cylonchau
 providers/transip @blackshadev

@@ -20,8 +20,8 @@ Jump to a table:
 
 ### Provider Type <!--(table 1/6)-->
 
-| Provider name | Official Support | DNS Provider | Registrar |
-| ------------- | ---------------- | ------------ | --------- |
+| Provider name | [Official Support](../provider/index.md#providers-with-official-support) | DNS Provider | Registrar |
+| ------------- | ------------------------------------------------------------------------ | ------------ | --------- |
 | [`ADGUARDHOME`](adguardhome.md) | ❌ | ✅ | ❌ |
 | [`AKAMAIEDGEDNS`](akamaiedgedns.md) | ❌ | ✅ | ❌ |
 | [`ALIDNS`](alidns.md) | ❌ | ✅ | ❌ |
@@ -44,6 +44,7 @@ Jump to a table:
 | [`DNSOVERHTTPS`](dnsoverhttps.md) | ❌ | ❌ | ✅ |
 | [`DOMAINNAMESHOP`](domainnameshop.md) | ❌ | ✅ | ❌ |
 | [`DYNADOT`](dynadot.md) | ❌ | ❌ | ✅ |
+| [`DYNU`](dynu.md) | ❌ | ✅ | ❌ |
 | [`EASYNAME`](easyname.md) | ❌ | ❌ | ✅ |
 | [`EXOSCALE`](exoscale.md) | ❌ | ✅ | ❌ |
 | [`FORTIGATE`](fortigate.md) | ❌ | ✅ | ❌ |
@@ -51,8 +52,8 @@ Jump to a table:
 | [`GCLOUD`](gcloud.md) | ✅ | ✅ | ❌ |
 | [`GCORE`](gcore.md) | ❌ | ✅ | ❌ |
 | [`GIDINET`](gidinet.md) | ❌ | ✅ | ✅ |
+| [`GIGAHOST`](gigahost.md) | ❌ | ✅ | ❌ |
 | [`HEDNS`](hedns.md) | ❌ | ✅ | ❌ |
-| [`HETZNER`](hetzner.md) | ❌ | ✅ | ❌ |
 | [`HETZNER_V2`](hetznerv2.md) | ❌ | ✅ | ❌ |
 | [`HOSTINGDE`](hostingde.md) | ❌ | ✅ | ✅ |
 | [`HUAWEICLOUD`](huaweicloud.md) | ❌ | ✅ | ❌ |
@@ -71,8 +72,10 @@ Jump to a table:
 | [`NETCUP`](netcup.md) | ❌ | ✅ | ❌ |
 | [`NETLIFY`](netlify.md) | ❌ | ✅ | ❌ |
 | [`NETNOD`](netnod.md) | ❌ | ✅ | ❌ |
+| [`NEXDNS`](nexdns.md) | ❌ | ✅ | ❌ |
 | [`NS1`](ns1.md) | ❌ | ✅ | ❌ |
 | [`OPENSRS`](opensrs.md) | ❌ | ❌ | ✅ |
+| [`OPENWRT`](openwrt.md) | ❌ | ✅ | ❌ |
 | [`ORACLE`](oracle.md) | ❌ | ✅ | ❌ |
 | [`OVH`](ovh.md) | ❌ | ✅ | ✅ |
 | [`PACKETFRAME`](packetframe.md) | ❌ | ✅ | ❌ |
@@ -82,6 +85,7 @@ Jump to a table:
 | [`ROUTE53`](route53.md) | ✅ | ✅ | ✅ |
 | [`RWTH`](rwth.md) | ❌ | ✅ | ❌ |
 | [`SAKURACLOUD`](sakuracloud.md) | ❌ | ✅ | ❌ |
+| [`SCALEWAY`](scaleway.md) | ❌ | ✅ | ❌ |
 | [`SOFTLAYER`](softlayer.md) | ❌ | ✅ | ❌ |
 | [`TENCENTDNS`](tencentdns.md) | ❌ | ✅ | ✅ |
 | [`TRANSIP`](transip.md) | ❌ | ✅ | ❌ |
@@ -93,8 +97,8 @@ Jump to a table:
 
 ### Provider API <!--(table 2/6)-->
 
-| Provider name | [Concurrency Verified](../advanced-features/concurrency-verified.md) | [dual host](../advanced-features/dual-host.md) | create-domains | get-zones |
-| ------------- | -------------------------------------------------------------------- | ---------------------------------------------- | -------------- | --------- |
+| Provider name | [Concurrency Verified](../advanced-features/concurrency-verified.md) | [dual host](../advanced-features/dual-host.md) | create-domains | [get-zones](../commands/get-zones.md) |
+| ------------- | -------------------------------------------------------------------- | ---------------------------------------------- | -------------- | ------------------------------------- |
 | [`ADGUARDHOME`](adguardhome.md) | ❔ | ❔ | ❌ | ❌ |
 | [`AKAMAIEDGEDNS`](akamaiedgedns.md) | ❔ | ✅ | ✅ | ✅ |
 | [`ALIDNS`](alidns.md) | ✅ | ✅ | ❌ | ✅ |
@@ -116,6 +120,7 @@ Jump to a table:
 | [`DNSMADEEASY`](dnsmadeeasy.md) | ❔ | ✅ | ✅ | ✅ |
 | [`DNSOVERHTTPS`](dnsoverhttps.md) | ❔ | ❔ | ❌ | ❔ |
 | [`DYNADOT`](dynadot.md) | ❔ | ❔ | ❌ | ❔ |
+| [`DYNU`](dynu.md) | ❌ | ❔ | ❌ | ✅ |
 | [`EASYNAME`](easyname.md) | ❔ | ❔ | ❌ | ❔ |
 | [`EXOSCALE`](exoscale.md) | ❌ | ❌ | ❌ | ❔ |
 | [`FORTIGATE`](fortigate.md) | ❔ | ❔ | ✅ | ✅ |
@@ -123,8 +128,8 @@ Jump to a table:
 | [`GCLOUD`](gcloud.md) | ✅ | ✅ | ✅ | ✅ |
 | [`GCORE`](gcore.md) | ✅ | ✅ | ✅ | ✅ |
 | [`GIDINET`](gidinet.md) | ✅ | ✅ | ❌ | ✅ |
+| [`GIGAHOST`](gigahost.md) | ❔ | ❔ | ❌ | ✅ |
 | [`HEDNS`](hedns.md) | ✅ | ✅ | ✅ | ✅ |
-| [`HETZNER`](hetzner.md) | ✅ | ✅ | ✅ | ✅ |
 | [`HETZNER_V2`](hetznerv2.md) | ✅ | ✅ | ✅ | ✅ |
 | [`HOSTINGDE`](hostingde.md) | ❔ | ✅ | ✅ | ✅ |
 | [`HUAWEICLOUD`](huaweicloud.md) | ❔ | ✅ | ✅ | ✅ |
@@ -143,8 +148,10 @@ Jump to a table:
 | [`NETCUP`](netcup.md) | ❔ | ❌ | ❌ | ❌ |
 | [`NETLIFY`](netlify.md) | ✅ | ❌ | ❌ | ✅ |
 | [`NETNOD`](netnod.md) | ❔ | ✅ | ✅ | ✅ |
+| [`NEXDNS`](nexdns.md) | ❔ | ❌ | ✅ | ✅ |
 | [`NS1`](ns1.md) | ✅ | ✅ | ✅ | ✅ |
 | [`OPENSRS`](opensrs.md) | ❔ | ❔ | ❌ | ❔ |
+| [`OPENWRT`](openwrt.md) | ❔ | ❔ | ❌ | ✅ |
 | [`ORACLE`](oracle.md) | ❔ | ✅ | ✅ | ✅ |
 | [`OVH`](ovh.md) | ❔ | ✅ | ❌ | ✅ |
 | [`PACKETFRAME`](packetframe.md) | ❔ | ❌ | ❌ | ❔ |
@@ -154,12 +161,13 @@ Jump to a table:
 | [`ROUTE53`](route53.md) | ✅ | ✅ | ✅ | ✅ |
 | [`RWTH`](rwth.md) | ❔ | ❌ | ❌ | ✅ |
 | [`SAKURACLOUD`](sakuracloud.md) | ❔ | ❌ | ✅ | ✅ |
+| [`SCALEWAY`](scaleway.md) | ❔ | ❌ | ❌ | ✅ |
 | [`SOFTLAYER`](softlayer.md) | ❔ | ❔ | ❌ | ❔ |
 | [`TENCENTDNS`](tencentdns.md) | ❔ | ✅ | ✅ | ✅ |
 | [`TRANSIP`](transip.md) | ✅ | ❌ | ❌ | ✅ |
 | [`UNIFI`](unifi.md) | ❌ | ❔ | ❌ | ❌ |
 | [`VERCEL`](vercel.md) | ❔ | ❌ | ❌ | ❌ |
-| [`VULTR`](vultr.md) | ❔ | ❔ | ✅ | ✅ |
+| [`VULTR`](vultr.md) | ✅ | ❔ | ✅ | ✅ |
 | [`WEBSUPPORT`](websupport.md) | ❔ | ❌ | ❌ | ❌ |
 
 
@@ -186,14 +194,15 @@ Jump to a table:
 | [`DNSIMPLE`](dnsimple.md) | ✅ | ❔ | ❌ | ✅ | ❔ |
 | [`DNSMADEEASY`](dnsmadeeasy.md) | ✅ | ❔ | ❌ | ✅ | ❔ |
 | [`DOMAINNAMESHOP`](domainnameshop.md) | ❔ | ❔ | ❌ | ❌ | ❌ |
+| [`DYNU`](dynu.md) | ❌ | ✅ | ✅ | ✅ | ❔ |
 | [`EXOSCALE`](exoscale.md) | ✅ | ❔ | ❌ | ✅ | ❔ |
 | [`FORTIGATE`](fortigate.md) | ❔ | ❔ | ❌ | ❌ | ❔ |
 | [`GANDI_V5`](gandiv5.md) | ✅ | ❔ | ✅ | ✅ | ❔ |
 | [`GCLOUD`](gcloud.md) | ✅ | ❔ | ❌ | ✅ | ❔ |
 | [`GCORE`](gcore.md) | ✅ | ❔ | ❌ | ✅ | ❔ |
 | [`GIDINET`](gidinet.md) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| [`GIGAHOST`](gigahost.md) | ✅ | ✅ | ❔ | ✅ | ❔ |
 | [`HEDNS`](hedns.md) | ✅ | ❌ | ✅ | ✅ | ❌ |
-| [`HETZNER`](hetzner.md) | ❌ | ❔ | ❌ | ❌ | ❌ |
 | [`HETZNER_V2`](hetznerv2.md) | ❌ | ❔ | ❌ | ✅ | ❌ |
 | [`HOSTINGDE`](hostingde.md) | ✅ | ❔ | ❌ | ✅ | ✅ |
 | [`HUAWEICLOUD`](huaweicloud.md) | ❌ | ❔ | ❌ | ❌ | ❌ |
@@ -211,18 +220,21 @@ Jump to a table:
 | [`NETCUP`](netcup.md) | ❔ | ❔ | ❌ | ❌ | ❔ |
 | [`NETLIFY`](netlify.md) | ✅ | ❔ | ❌ | ❌ | ❔ |
 | [`NETNOD`](netnod.md) | ✅ | ❌ | ❌ | ✅ | ❌ |
+| [`NEXDNS`](nexdns.md) | ✅ | ✅ | ❌ | ✅ | ❌ |
 | [`NS1`](ns1.md) | ✅ | ✅ | ❌ | ✅ | ❔ |
+| [`OPENWRT`](openwrt.md) | ❌ | ❔ | ❔ | ❔ | ❔ |
 | [`ORACLE`](oracle.md) | ✅ | ❔ | ❔ | ✅ | ❔ |
 | [`OVH`](ovh.md) | ❌ | ❔ | ❔ | ❌ | ❔ |
 | [`PACKETFRAME`](packetframe.md) | ❔ | ❔ | ❔ | ✅ | ❔ |
 | [`PORKBUN`](porkbun.md) | ✅ | ❔ | ❌ | ❌ | ❌ |
 | [`POWERDNS`](powerdns.md) | ✅ | ✅ | ❔ | ✅ | ✅ |
 | [`REALTIMEREGISTER`](realtimeregister.md) | ✅ | ❔ | ✅ | ❌ | ❌ |
-| [`ROUTE53`](route53.md) | ❌ | ❔ | ❌ | ✅ | ❔ |
+| [`ROUTE53`](route53.md) | ❌ | ❔ | ❌ | ✅ | ✅ |
 | [`RWTH`](rwth.md) | ❌ | ❔ | ❌ | ✅ | ❔ |
 | [`SAKURACLOUD`](sakuracloud.md) | ✅ | ❌ | ❌ | ✅ | ❌ |
+| [`SCALEWAY`](scaleway.md) | ✅ | ✅ | ❌ | ✅ | ❌ |
 | [`SOFTLAYER`](softlayer.md) | ❔ | ❔ | ❌ | ❔ | ❔ |
-| [`TENCENTDNS`](tencentdns.md) | ✅ | ❔ | ❔ | ✅ | ❔ |
+| [`TENCENTDNS`](tencentdns.md) | ✅ | ❔ | ❔ | ❌ | ❔ |
 | [`TRANSIP`](transip.md) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | [`UNIFI`](unifi.md) | ❌ | ❔ | ❌ | ❌ | ❔ |
 | [`VERCEL`](vercel.md) | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -253,13 +265,14 @@ Jump to a table:
 | [`DNSIMPLE`](dnsimple.md) | ❔ | ✅ | ✅ | ✅ |
 | [`DNSMADEEASY`](dnsmadeeasy.md) | ❔ | ❔ | ✅ | ❔ |
 | [`DOMAINNAMESHOP`](domainnameshop.md) | ❔ | ❌ | ✅ | ❔ |
+| [`DYNU`](dynu.md) | ✅ | ✅ | ✅ | ✅ |
 | [`EXOSCALE`](exoscale.md) | ❔ | ❔ | ✅ | ❔ |
 | [`GANDI_V5`](gandiv5.md) | ❔ | ✅ | ✅ | ✅ |
 | [`GCLOUD`](gcloud.md) | ❔ | ❔ | ✅ | ✅ |
 | [`GCORE`](gcore.md) | ❔ | ❌ | ✅ | ✅ |
 | [`GIDINET`](gidinet.md) | ❌ | ❌ | ✅ | ❌ |
+| [`GIGAHOST`](gigahost.md) | ❔ | ✅ | ✅ | ❔ |
 | [`HEDNS`](hedns.md) | ❌ | ✅ | ✅ | ✅ |
-| [`HETZNER`](hetzner.md) | ❔ | ❌ | ✅ | ❔ |
 | [`HETZNER_V2`](hetznerv2.md) | ❔ | ❌ | ✅ | ✅ |
 | [`HOSTINGDE`](hostingde.md) | ❔ | ❌ | ✅ | ❔ |
 | [`HUAWEICLOUD`](huaweicloud.md) | ❔ | ❌ | ✅ | ❌ |
@@ -271,13 +284,15 @@ Jump to a table:
 | [`LUADNS`](luadns.md) | ❔ | ❔ | ✅ | ❔ |
 | [`MIKROTIK`](mikrotik.md) | ❔ | ❌ | ✅ | ❌ |
 | [`MYTHICBEASTS`](mythicbeasts.md) | ❔ | ❔ | ✅ | ❔ |
-| [`NAMECHEAP`](namecheap.md) | ❔ | ❔ | ❌ | ❔ |
+| [`NAMECHEAP`](namecheap.md) | ❔ | ❔ | ✅ | ❔ |
 | [`NAMEDOTCOM`](namedotcom.md) | ❔ | ❔ | ✅ | ❔ |
 | [`NETBIRD`](netbird.md) | ❌ | ❌ | ❌ | ❌ |
 | [`NETCUP`](netcup.md) | ❔ | ❔ | ✅ | ❔ |
 | [`NETLIFY`](netlify.md) | ❔ | ❌ | ✅ | ❔ |
 | [`NETNOD`](netnod.md) | ❌ | ✅ | ✅ | ✅ |
+| [`NEXDNS`](nexdns.md) | ❌ | ❌ | ✅ | ❌ |
 | [`NS1`](ns1.md) | ✅ | ✅ | ✅ | ✅ |
+| [`OPENWRT`](openwrt.md) | ❔ | ❔ | ✅ | ❔ |
 | [`ORACLE`](oracle.md) | ❔ | ✅ | ✅ | ❔ |
 | [`OVH`](ovh.md) | ❔ | ❔ | ✅ | ❔ |
 | [`PACKETFRAME`](packetframe.md) | ❔ | ❔ | ✅ | ❔ |
@@ -287,6 +302,7 @@ Jump to a table:
 | [`ROUTE53`](route53.md) | ❔ | ❔ | ✅ | ✅ |
 | [`RWTH`](rwth.md) | ❔ | ❌ | ✅ | ❔ |
 | [`SAKURACLOUD`](sakuracloud.md) | ❌ | ❌ | ✅ | ✅ |
+| [`SCALEWAY`](scaleway.md) | ❌ | ✅ | ✅ | ✅ |
 | [`SOFTLAYER`](softlayer.md) | ❔ | ❔ | ✅ | ❔ |
 | [`TENCENTDNS`](tencentdns.md) | ❔ | ❔ | ✅ | ❔ |
 | [`TRANSIP`](transip.md) | ❌ | ✅ | ✅ | ❌ |
@@ -319,13 +335,14 @@ Jump to a table:
 | [`DNSIMPLE`](dnsimple.md) | ✅ | ✅ | ❔ | ✅ | ✅ |
 | [`DNSMADEEASY`](dnsmadeeasy.md) | ✅ | ❔ | ❔ | ❌ | ❌ |
 | [`DOMAINNAMESHOP`](domainnameshop.md) | ✅ | ❔ | ❔ | ❌ | ❔ |
+| [`DYNU`](dynu.md) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [`EXOSCALE`](exoscale.md) | ✅ | ❔ | ❔ | ❔ | ❌ |
 | [`GANDI_V5`](gandiv5.md) | ✅ | ✅ | ❔ | ✅ | ✅ |
 | [`GCLOUD`](gcloud.md) | ✅ | ✅ | ❔ | ✅ | ✅ |
 | [`GCORE`](gcore.md) | ✅ | ✅ | ❔ | ❌ | ❌ |
 | [`GIDINET`](gidinet.md) | ❌ | ❌ | ❔ | ❌ | ❌ |
+| [`GIGAHOST`](gigahost.md) | ✅ | ❔ | ❔ | ❔ | ❔ |
 | [`HEDNS`](hedns.md) | ✅ | ✅ | ❌ | ✅ | ❌ |
-| [`HETZNER`](hetzner.md) | ✅ | ❔ | ❔ | ❌ | ✅ |
 | [`HETZNER_V2`](hetznerv2.md) | ✅ | ✅ | ❔ | ❌ | ✅ |
 | [`HOSTINGDE`](hostingde.md) | ✅ | ❔ | ❔ | ✅ | ✅ |
 | [`HUAWEICLOUD`](huaweicloud.md) | ✅ | ❌ | ❔ | ❌ | ❌ |
@@ -342,6 +359,7 @@ Jump to a table:
 | [`NETCUP`](netcup.md) | ✅ | ❔ | ❔ | ❔ | ✅ |
 | [`NETLIFY`](netlify.md) | ✅ | ❔ | ❔ | ❌ | ❌ |
 | [`NETNOD`](netnod.md) | ✅ | ✅ | ❔ | ✅ | ✅ |
+| [`NEXDNS`](nexdns.md) | ✅ | ❌ | ❌ | ❌ | ✅ |
 | [`NS1`](ns1.md) | ✅ | ✅ | ❔ | ❔ | ✅ |
 | [`ORACLE`](oracle.md) | ✅ | ❔ | ❔ | ✅ | ✅ |
 | [`OVH`](ovh.md) | ✅ | ❔ | ❔ | ✅ | ✅ |
@@ -351,6 +369,7 @@ Jump to a table:
 | [`ROUTE53`](route53.md) | ✅ | ✅ | ❔ | ✅ | ✅ |
 | [`RWTH`](rwth.md) | ✅ | ❔ | ❔ | ✅ | ❌ |
 | [`SAKURACLOUD`](sakuracloud.md) | ✅ | ✅ | ❔ | ❌ | ❌ |
+| [`SCALEWAY`](scaleway.md) | ✅ | ✅ | ❔ | ✅ | ✅ |
 | [`TENCENTDNS`](tencentdns.md) | ✅ | ❔ | ❔ | ❔ | ❔ |
 | [`TRANSIP`](transip.md) | ✅ | ❌ | ❔ | ✅ | ✅ |
 | [`UNIFI`](unifi.md) | ❌ | ❔ | ❔ | ❌ | ❌ |
@@ -373,16 +392,18 @@ Jump to a table:
 | [`CLOUDNS`](cloudns.md) | ✅ | ❌ | ❌ |
 | [`CLOUDPRESS`](cloudpress.md) | ✅ | ❔ | ❔ |
 | [`DESEC`](desec.md) | ✅ | ✅ | ✅ |
+| [`CNR`](cnr.md) | ✅ | ❔ | ❔ |
+| [`DESEC`](desec.md) | ✅ | ✅ | ❌ |
 | [`DIGITALOCEAN`](digitalocean.md) | ❌ | ❌ | ❌ |
 | [`DNSIMPLE`](dnsimple.md) | ✅ | ❔ | ❌ |
 | [`DNSMADEEASY`](dnsmadeeasy.md) | ❔ | ❔ | ❌ |
 | [`DOMAINNAMESHOP`](domainnameshop.md) | ❌ | ❔ | ❔ |
+| [`DYNU`](dynu.md) | ❌ | ❔ | ❔ |
 | [`GANDI_V5`](gandiv5.md) | ❔ | ❔ | ❌ |
 | [`GCLOUD`](gcloud.md) | ✅ | ❔ | ❔ |
 | [`GCORE`](gcore.md) | ✅ | ❔ | ❌ |
 | [`GIDINET`](gidinet.md) | ❌ | ❌ | ❌ |
 | [`HEDNS`](hedns.md) | ❌ | ❌ | ❌ |
-| [`HETZNER`](hetzner.md) | ❌ | ❔ | ✅ |
 | [`HETZNER_V2`](hetznerv2.md) | ❌ | ❔ | ✅ |
 | [`HOSTINGDE`](hostingde.md) | ✅ | ❔ | ✅ |
 | [`HUAWEICLOUD`](huaweicloud.md) | ✅ | ❔ | ❌ |
@@ -394,14 +415,17 @@ Jump to a table:
 | [`NETBIRD`](netbird.md) | ❌ | ❌ | ❌ |
 | [`NETLIFY`](netlify.md) | ❌ | ❔ | ❌ |
 | [`NETNOD`](netnod.md) | ❌ | ❌ | ❌ |
+| [`NEXDNS`](nexdns.md) | ❔ | ❌ | ❌ |
 | [`NS1`](ns1.md) | ✅ | ❔ | ✅ |
 | [`ORACLE`](oracle.md) | ❔ | ❔ | ❌ |
 | [`PORKBUN`](porkbun.md) | ❌ | ❔ | ❌ |
 | [`POWERDNS`](powerdns.md) | ✅ | ✅ | ✅ |
 | [`REALTIMEREGISTER`](realtimeregister.md) | ✅ | ❔ | ❌ |
 | [`SAKURACLOUD`](sakuracloud.md) | ❌ | ❌ | ❌ |
+| [`SCALEWAY`](scaleway.md) | ❌ | ❔ | ❌ |
 | [`TRANSIP`](transip.md) | ❌ | ❌ | ❌ |
 | [`VERCEL`](vercel.md) | ❌ | ❌ | ❌ |
+| [`VULTR`](vultr.md) | ✅ | ❔ | ❔ |
 | [`WEBSUPPORT`](websupport.md) | ❔ | ❔ | ❌ |
 
 <!-- provider-matrix-end -->
@@ -468,7 +492,7 @@ Providers in this category and their maintainers are:
 |[`GCORE`](gcore.md)|@xddxdd|
 |[`GIDINET`](gidinet.md)|@zupolgec|
 |[`HEDNS`](hedns.md)|@rblenkinsopp|
-|[`HETZNER`](hetzner.md)|@das7pad|
+|[`HETZNER_V2`](hetznerv2.md)|@das7pad|
 |[`HOSTINGDE`](hostingde.md)|@membero|
 |[`HUAWEICLOUD`](huaweicloud.md)|@huihuimoe|
 |[`INFOMANIAK`](infomaniak.md)|@jbelien|
@@ -484,6 +508,7 @@ Providers in this category and their maintainers are:
 |[`NETNOD`](netnod.md)|@Netnod|
 |[`NS1`](ns1.md)|@costasd|
 |[`OPENSRS`](opensrs.md)|@philhug|
+|[`OPENWRT`](openwrt.md)|@huskyistaken|
 |[`ORACLE`](oracle.md)|@kallsyms|
 |[`OVH`](ovh.md)|@masterzen|
 |[`PACKETFRAME`](packetframe.md)|@hamptonmoore|
@@ -492,6 +517,7 @@ Providers in this category and their maintainers are:
 |[`ROUTE53`](route53.md)|@tresni|
 |[`RWTH`](rwth.md)|@MisterErwin|
 | [`SAKURACLOUD`](sakuracloud.md) | @ttkzw |
+| [`SCALEWAY`](scaleway.md) | @alessiopcc |
 | [`SOFTLAYER`](softlayer.md) | @jamielennox |
 | [`TENCENTDNS`](tencentdns.md) | @cylonchau |
 | [`TRANSIP`](transip.md) | @blackshadev |
@@ -520,7 +546,6 @@ We have received requests for the following providers. If you would like to cont
 * [Rackspace Cloud DNS](https://github.com/DNSControl/dnscontrol/issues/2980) (#2980)
 * [RcodeZero](https://github.com/DNSControl/dnscontrol/issues/884) (#884)
 * [Sav.com](https://github.com/DNSControl/dnscontrol/issues/3633) (#3633)
-* [Scaleway](https://github.com/DNSControl/dnscontrol/issues/3606) (#3606)
 * [Spaceship](https://github.com/DNSControl/dnscontrol/issues/3452) (#3452)
 * [SynergyWholesale](https://github.com/DNSControl/dnscontrol/issues/1605) (#1605)
 * [UltraDNS by Neustar / CSCGlobal](https://github.com/DNSControl/dnscontrol/issues/1533) (#1533)

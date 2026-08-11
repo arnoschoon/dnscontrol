@@ -1,8 +1,8 @@
 package namecheap
 
 import (
-	"github.com/DNSControl/dnscontrol/v4/models"
-	"github.com/DNSControl/dnscontrol/v4/pkg/rejectif"
+	"github.com/DNSControl/dnscontrol/v5/models"
+	"github.com/DNSControl/dnscontrol/v5/pkg/rejectif"
 )
 
 // AuditRecords returns a list of errors corresponding to the records
@@ -14,6 +14,10 @@ func AuditRecords(records []*models.RecordConfig) []error {
 	a.Add("MX", rejectif.MxNull)
 
 	a.Add("TXT", rejectif.TxtHasDoubleQuotes)
+
+	a.Add("TXT", rejectif.TxtIsEmpty)
+
+	a.Add("TXT", rejectif.TxtStartsOrEndsWithSpaces)
 
 	return a.Audit(records)
 }

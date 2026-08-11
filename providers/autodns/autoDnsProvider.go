@@ -7,15 +7,17 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
+	"time"
 
-	"github.com/DNSControl/dnscontrol/v4/models"
-	"github.com/DNSControl/dnscontrol/v4/pkg/diff2"
-	"github.com/DNSControl/dnscontrol/v4/pkg/providers"
-	"github.com/DNSControl/dnscontrol/v4/providers/bind"
+	"github.com/pquerna/otp/totp"
+
+	dnsv2 "codeberg.org/miekg/dns"
+	"github.com/DNSControl/dnscontrol/v5/models"
+	"github.com/DNSControl/dnscontrol/v5/pkg/diff2"
+	"github.com/DNSControl/dnscontrol/v5/pkg/providers"
+	"github.com/DNSControl/dnscontrol/v5/providers/bind"
 )
 
 var features = providers.DocumentationNotes{
@@ -36,8 +38,11 @@ var features = providers.DocumentationNotes{
 }
 
 type autoDNSProvider struct {
-	baseURL        url.URL
-	defaultHeaders http.Header
+	baseURL         url.URL
+	defaultHeaders  http.Header
+	includeChildren bool
+	totpValue       string
+	totpKey         string
 }
 
 func init() {
@@ -45,18 +50,64 @@ func init() {
 	const providerMaintainer = "@arnoschoon"
 	fns := providers.DspFuncs{
 		Initializer: func(settings map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
-			return newAutoDNSProvider(settings), nil
+			api, err := newAutoDNSProvider(settings)
+			if err != nil {
+				return nil, err
+			}
+			return api, nil
 		},
 		RecordAuditor: AuditRecords,
 	}
 	providers.RegisterRegistrarType(providerName, func(settings map[string]string) (providers.Registrar, error) {
-		return newAutoDNSProvider(settings), nil
+		api, err := newAutoDNSProvider(settings)
+		if err != nil {
+			return nil, err
+		}
+		return api, nil
 	}, features)
 	providers.RegisterDomainServiceProviderType(providerName, fns, features)
 	providers.RegisterMaintainer(providerName, providerMaintainer)
+	providers.RegisterCredsMetadata(providerName, providers.CredsMetadata{
+		DisplayName: "AutoDNS",
+		Kind:        providers.KindDNS | providers.KindRegistrar,
+		DocsURL:     "https://docs.dnscontrol.org/provider/autodns",
+		PortalURL:   "https://login.autodns.com/", // TODO: Verify
+		Fields: []providers.CredsField{
+			{
+				Key:      "username",
+				Label:    "Username",
+				Help:     "AutoDNS / Domainrobot username.",
+				Required: true,
+			},
+			{
+				Key:      "password",
+				Label:    "Password",
+				Help:     "AutoDNS / Domainrobot password.",
+				Secret:   true,
+				Required: true,
+			},
+			{
+				Key:      "context",
+				Label:    "Context",
+				Help:     "Value for the X-Domainrobot-Context header.",
+				Required: true,
+			},
+			{
+				Key:    "totp-key",
+				Label:  "TOTP shared secret (optional)",
+				Help:   "Shared TOTP secret used to generate the 2FA token. Only needed if two factor authentication is enabled for the account.",
+				Secret: true,
+			},
+			{
+				Key:   "children",
+				Label: "Include sub-user zones",
+				Help:  "Set to \"true\" so get-zones also lists zones owned by sub-users (master/admin accounts). Optional; defaults to off.",
+			},
+		},
+	})
 }
 
-func newAutoDNSProvider(settings map[string]string) *autoDNSProvider {
+func newAutoDNSProvider(settings map[string]string) (*autoDNSProvider, error) {
 	api := &autoDNSProvider{}
 
 	api.baseURL = url.URL{
@@ -75,7 +126,36 @@ func newAutoDNSProvider(settings map[string]string) *autoDNSProvider {
 		"X-Domainrobot-Context": []string{settings["context"]},
 	}
 
-	return api
+	// AutoDNS hides zones owned by sub-users unless "children" is requested
+	// (the same optional toggle the web UI offers). Opt-in via creds.json.
+	api.includeChildren = settings["children"] == "true"
+
+	api.totpValue, api.totpKey = settings["totp"], settings["totp-key"]
+
+	if api.totpValue != "" && api.totpKey != "" {
+		return nil, errors.New("AUTODNS: totp and totp-key must not be specified at the same time")
+	}
+
+	if api.totpKey != "" {
+		if _, err := totp.GenerateCode(api.totpKey, time.Now()); err != nil {
+			return nil, fmt.Errorf("AUTODNS: unable to generate a 2FA token from totp-key: %w", err)
+		}
+	}
+
+	return api, nil
+}
+
+func (api *autoDNSProvider) otp() (string, error) {
+	if api.totpKey == "" {
+		return api.totpValue, nil
+	}
+
+	token, err := totp.GenerateCode(api.totpKey, time.Now())
+	if err != nil {
+		return "", fmt.Errorf("AUTODNS: unable to generate a 2FA token from totp-key: %w", err)
+	}
+
+	return token, nil
 }
 
 // GetZoneRecordsCorrections returns a list of corrections that will turn existing records into dc.Records.
@@ -122,45 +202,43 @@ func recordsToNative(recs models.Records) ([]*models.Nameserver, uint32, []*Reso
 	var zoneTTL uint32
 	var resourceRecords []*ResourceRecord
 
-	for _, record := range recs {
-		if record.Type == "NS" && record.Name == "@" {
+	for _, rc := range recs {
+		if rc.Type == "NS" && rc.Name == "@" {
 			// NS records for the APEX should be handled differently
 			nameServers = append(nameServers, &models.Nameserver{
-				Name: strings.TrimSuffix(record.GetTargetField(), "."),
+				Name: strings.TrimSuffix(rc.AsNS().Ns, "."),
 			})
 
-			zoneTTL = record.TTL
+			zoneTTL = rc.TTL
 		} else {
+			name := rc.Name
+			if name == "@" {
+				name = ""
+			}
+
 			resourceRecord := &ResourceRecord{
-				Name:  record.Name,
-				TTL:   int64(record.TTL),
-				Type:  record.Type,
-				Value: record.GetTargetField(),
+				Name: name,
+				TTL:  int64(rc.TTL),
+				Type: rc.Type,
 			}
 
-			if resourceRecord.Name == "@" {
-				resourceRecord.Name = ""
-			}
+			switch rc.TypeNum {
+			case dnsv2.TypeMX:
+				f := rc.AsMX()
+				resourceRecord.Pref = int32(f.Preference)
+				resourceRecord.Value = rc.GetRDATA().String()
+				// If that doesn't work, try:
+				//resourceRecord.Pref = int32(f.Preference)
+				//resourceRecord.Value = f.Mx
 
-			if record.Type == "MX" {
-				resourceRecord.Pref = int32(record.MxPreference)
-			}
+			// case dnsv2.TypeSRV:
+			// 	resourceRecord.Value = rc.GetRDATA().String()
 
-			if record.Type == "SRV" {
-				resourceRecord.Value = fmt.Sprintf("%d %d %d %s",
-					record.SrvPriority,
-					record.SrvWeight,
-					record.SrvPort,
-					record.GetTargetField(),
-				)
-			}
+			// case dnsv2.TypeCAA:
+			// 	resourceRecord.Value = rc.GetRDATA().String()
 
-			if record.Type == "CAA" {
-				resourceRecord.Value = fmt.Sprintf("%d %s \"%s\"",
-					record.CaaFlag,
-					record.CaaTag,
-					record.GetTargetField(),
-				)
+			default:
+				resourceRecord.Value = rc.GetRDATA().String()
 			}
 
 			resourceRecords = append(resourceRecords, resourceRecord)
@@ -191,7 +269,7 @@ func (api *autoDNSProvider) GetZoneRecords(dc *models.DomainConfig) (models.Reco
 	existingRecords := make([]*models.RecordConfig, len(zone.ResourceRecords))
 	for i, resourceRecord := range zone.ResourceRecords {
 		var err error
-		existingRecords[i], err = toRecordConfig(domain, resourceRecord)
+		existingRecords[i], err = toRecordConfig(dc, resourceRecord)
 		if err != nil {
 			return nil, err
 		}
@@ -203,47 +281,33 @@ func (api *autoDNSProvider) GetZoneRecords(dc *models.DomainConfig) (models.Reco
 
 	// AutoDNS doesn't respond with APEX nameserver records as regular RR but rather as a zone property
 	for _, nameServer := range zone.NameServers {
-		nameServerRecord := &models.RecordConfig{
-			TTL: zone.Soa.TTL,
-		}
-
-		nameServerRecord.SetLabel("", domain)
-
 		// make sure the value for this NS record is suffixed with a dot at the end
-		_ = nameServerRecord.PopulateFromString("NS", strings.TrimSuffix(nameServer.Name, ".")+".", domain)
+		nameServerRecord, err := dc.NewRecordConfig("@", zone.Soa.TTL, dnsv2.TypeNS, strings.TrimSuffix(nameServer.Name, ".")+".")
+		if err != nil {
+			return nil, err
+		}
 
 		existingRecords = append(existingRecords, nameServerRecord)
 	}
 
 	if zone.MainRecord != nil && zone.MainRecord.Value != "" {
-		addressRecord := &models.RecordConfig{
-			TTL: uint32(zone.MainRecord.TTL),
-		}
-
+		ttl := uint32(zone.MainRecord.TTL)
 		// If TTL is not set for an individual RR AutoDNS defaults to the zone TTL defined in SOA
-		if addressRecord.TTL == 0 {
-			addressRecord.TTL = zone.Soa.TTL
+		if ttl == 0 {
+			ttl = zone.Soa.TTL
 		}
-
-		addressRecord.SetLabel("", domain)
-
-		_ = addressRecord.PopulateFromString("A", zone.MainRecord.Value, domain)
+		addressRecord, err := dc.NewRecordConfig("@", ttl, dnsv2.TypeA, zone.MainRecord.Value)
+		if err != nil {
+			return nil, err
+		}
 
 		existingRecords = append(existingRecords, addressRecord)
 
 		if zone.IncludeWwwForMain {
-			prefixedAddressRecord := &models.RecordConfig{
-				TTL: uint32(zone.MainRecord.TTL),
+			prefixedAddressRecord, err := dc.NewRecordConfig(dc.LabelFromShort("www"), ttl, dnsv2.TypeA, zone.MainRecord.Value)
+			if err != nil {
+				return nil, err
 			}
-
-			// If TTL is not set for an individual RR AutoDNS defaults to the zone TTL defined in SOA
-			if prefixedAddressRecord.TTL == 0 {
-				prefixedAddressRecord.TTL = zone.Soa.TTL
-			}
-
-			prefixedAddressRecord.SetLabel("www", domain)
-
-			_ = prefixedAddressRecord.PopulateFromString("A", zone.MainRecord.Value, domain)
 
 			existingRecords = append(existingRecords, prefixedAddressRecord)
 		}
@@ -252,7 +316,9 @@ func (api *autoDNSProvider) GetZoneRecords(dc *models.DomainConfig) (models.Reco
 	return existingRecords, nil
 }
 
-func (api *autoDNSProvider) EnsureZoneExists(domain string, metadata map[string]string) error {
+func (api *autoDNSProvider) EnsureZoneExists(dc *models.DomainConfig) error {
+	domain := dc.Name
+
 	// try to get zone
 	_, err := api.getZone(domain)
 
@@ -320,65 +386,24 @@ func (api *autoDNSProvider) GetRegistrarCorrections(dc *models.DomainConfig) ([]
 	return nil, nil
 }
 
-func toRecordConfig(domain string, record *ResourceRecord) (*models.RecordConfig, error) {
-	rc := &models.RecordConfig{
-		Type:     record.Type,
-		TTL:      uint32(record.TTL),
-		Original: record,
-	}
-	rc.SetLabel(record.Name, domain)
+func toRecordConfig(dc *models.DomainConfig, record *ResourceRecord) (*models.RecordConfig, error) {
+	label := dc.LabelFromShort(record.Name)
+	var rc *models.RecordConfig
+	var err error
 
-	// special record types are handled below, skip the `rc.PopulateFromString` method
-	if record.Type != "MX" && record.Type != "SRV" {
-		if err := rc.PopulateFromString(record.Type, record.Value, domain); err != nil {
-			return nil, err
-		}
+	ttl := uint32(record.TTL)
+	switch record.Type {
+	case "MX":
+		rc, err = dc.NewRecordConfig(label, ttl, dnsv2.TypeMX, uint16(record.Pref), record.Value)
+	case "SRV":
+		rc, err = dc.NewRecordConfigParse(label, ttl, dnsv2.TypeSRV, fmt.Sprintf("%d %s", record.Pref, record.Value))
+	default:
+		rc, err = dc.NewRecordConfigParse(label, ttl, record.Type, record.Value)
 	}
-
-	if record.Type == "MX" {
-		rc.MxPreference = uint16(record.Pref)
-		if err := rc.SetTarget(record.Value); err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
 	}
 
-	if record.Type == "SRV" {
-		rc.SrvPriority = uint16(record.Pref)
-
-		re := regexp.MustCompile(`(\d+) (\d+) (.+)$`)
-		found := re.FindStringSubmatch(record.Value)
-		if len(found) != 4 {
-			return nil, fmt.Errorf("invalid SRV record value: %s", record.Value)
-		}
-
-		weight, err := strconv.Atoi(found[1])
-		if err != nil {
-			return nil, err
-		}
-		if weight < 0 {
-			rc.SrvWeight = 0
-		} else if weight > 65535 {
-			rc.SrvWeight = 65535
-		} else {
-			rc.SrvWeight = uint16(weight)
-		}
-
-		port, err := strconv.Atoi(found[2])
-		if err != nil {
-			return nil, err
-		}
-		if port < 0 {
-			rc.SrvPort = 0
-		} else if port > 65535 {
-			rc.SrvPort = 65535
-		} else {
-			rc.SrvPort = uint16(port)
-		}
-
-		if err := rc.SetTarget(found[3]); err != nil {
-			return nil, err
-		}
-	}
-
+	rc.Original = record
 	return rc, nil
 }

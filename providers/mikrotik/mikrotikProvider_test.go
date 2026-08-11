@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DNSControl/dnscontrol/v4/models"
+	"github.com/DNSControl/dnscontrol/v5/models"
 )
 
 // --- belongsToDomain ---
@@ -178,7 +178,8 @@ func TestMetaCompFunc(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rc := &models.RecordConfig{Metadata: tt.metadata}
+			rc := new(models.RecordConfig)
+			rc.Metadata = tt.metadata
 			got := metaCompFunc(rc)
 			if got != tt.want {
 				t.Errorf("metaCompFunc() = %q, want %q", got, tt.want)
@@ -204,7 +205,8 @@ func TestForwarderCompFunc(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rc := &models.RecordConfig{Metadata: tt.metadata}
+			rc := new(models.RecordConfig)
+			rc.Metadata = tt.metadata
 			got := forwarderCompFunc(rc)
 			if got != tt.want {
 				t.Errorf("forwarderCompFunc() = %q, want %q", got, tt.want)
@@ -577,7 +579,8 @@ func TestGetZoneRecords_FiltersAndConverts(t *testing.T) {
 	})
 	defer srv.Close()
 
-	rcs, err := p.GetZoneRecords(&models.DomainConfig{Name: "example.com"})
+	dc := models.MustNewDomainConfig("example.com")
+	rcs, err := p.GetZoneRecords(dc)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -602,7 +605,8 @@ func TestGetZoneRecords_ForwarderZone(t *testing.T) {
 	})
 	defer srv.Close()
 
-	rcs, err := p.GetZoneRecords(&models.DomainConfig{Name: ForwarderZone})
+	dc := models.MustNewDomainConfig(ForwarderZone)
+	rcs, err := p.GetZoneRecords(dc)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/DNSControl/dnscontrol/v4/models"
-	"github.com/DNSControl/dnscontrol/v4/pkg/diff2"
-	"github.com/DNSControl/dnscontrol/v4/pkg/providers"
+	"github.com/DNSControl/dnscontrol/v5/models"
+	"github.com/DNSControl/dnscontrol/v5/pkg/diff2"
+	"github.com/DNSControl/dnscontrol/v5/pkg/providers"
 )
 
 // supportedRecordTypes is the set of DNS record types supported by NetBird.
@@ -50,10 +50,15 @@ func NewNetbird(m map[string]string, metadata json.RawMessage) (providers.DNSSer
 		return nil, errors.New("no NetBird token provided")
 	}
 
+	apiURL := m["apiurl"]
+	if apiURL == "" {
+		apiURL = netbirdAPIURL
+	}
+
 	api := &netbirdProvider{
 		token:   m["token"],
 		client:  &http.Client{},
-		apiURL:  netbirdAPIURL,
+		apiURL:  apiURL,
 		zoneMap: make(map[string]*zoneInfo),
 	}
 
@@ -109,6 +114,7 @@ func init() {
 		PortalURL:   "https://app.netbird.io/settings",
 		Fields: []providers.CredsField{
 			{Key: "token", Label: "API Token", Required: true, Secret: true},
+			{Key: "apiurl", Label: "API Url", Default: netbirdAPIURL},
 		},
 	})
 }
@@ -145,7 +151,10 @@ func parseEnableSearchDomain(metadata map[string]string) *bool {
 }
 
 // EnsureZoneExists creates a zone if it does not exist, or updates it if metadata specifies different settings.
-func (api *netbirdProvider) EnsureZoneExists(domain string, metadata map[string]string) error {
+func (api *netbirdProvider) EnsureZoneExists(dc *models.DomainConfig) error {
+	domain := dc.Name
+	metadata := dc.Metadata
+
 	zones, err := api.listZones()
 	if err != nil {
 		return err
@@ -244,9 +253,9 @@ func (api *netbirdProvider) GetZoneRecords(dc *models.DomainConfig) (models.Reco
 		return nil, err
 	}
 
-	var existingRecords []*models.RecordConfig
+	var existingRecords models.Records
 	for _, r := range records {
-		rc, err := nativeToRecordConfig(domain, &r)
+		rc, err := nativeToRecordConfig(dc, &r)
 		if err != nil {
 			return nil, err
 		}

@@ -7,9 +7,9 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/DNSControl/dnscontrol/v4/models"
-	"github.com/DNSControl/dnscontrol/v4/pkg/diff2"
-	"github.com/DNSControl/dnscontrol/v4/pkg/providers"
+	"github.com/DNSControl/dnscontrol/v5/models"
+	"github.com/DNSControl/dnscontrol/v5/pkg/diff2"
+	"github.com/DNSControl/dnscontrol/v5/pkg/providers"
 )
 
 // Feature Declaration
@@ -33,6 +33,43 @@ func init() {
 		RecordAuditor: AuditRecords,
 	}, features)
 	providers.RegisterMaintainer(providerName, providerMaintainer)
+	providers.RegisterCredsMetadata(providerName, providers.CredsMetadata{
+		DisplayName: "FortiGate",
+		Kind:        providers.KindDNS,
+		DocsURL:     "https://docs.dnscontrol.org/provider/fortigate",
+		PortalURL:   "https://docs.fortinet.com/", // TODO: Verify
+		Fields: []providers.CredsField{
+			{
+				Key:      "host",
+				Label:    "FortiGate host",
+				Help:     "Hostname or IP of the FortiGate appliance (with or without https://).",
+				Required: true,
+			},
+			{
+				Key:      "vdom",
+				Label:    "VDOM",
+				Help:     "FortiGate virtual domain (vdom) name.",
+				Required: true,
+			},
+			{
+				Key:      "apiKey",
+				Label:    "API key",
+				Help:     "FortiGate REST API key.",
+				Secret:   true,
+				Required: true,
+			},
+			{
+				Key:   "insecure_tls",
+				Label: "Skip TLS verification (optional)",
+				Help:  "Set to \"true\" to skip TLS certificate verification when connecting to the FortiGate.",
+			},
+			{
+				Key:   "debug_http",
+				Label: "Debug HTTP (optional)",
+				Help:  "Set to \"true\" to log HTTP requests and responses for debugging.",
+			},
+		},
+	})
 }
 
 // Provider Struct
@@ -109,7 +146,7 @@ func (p *fortigateProvider) GetZoneRecords(dc *models.DomainConfig) (models.Reco
 
 	// Convert native records to dnscontrol Records
 	for _, n := range resp.Results[0].DNSEntry {
-		rc, err := nativeToRecord(domain, n)
+		rc, err := nativeToRecord(dc, n)
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +195,7 @@ func (p *fortigateProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, e
 				Msg: msg,
 				F: func() error {
 
-					if err := p.EnsureZoneExists(dc.Name, dc.Metadata); err != nil {
+					if err := p.EnsureZoneExists(dc); err != nil {
 						return err
 					}
 
@@ -171,7 +208,8 @@ func (p *fortigateProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, e
 }
 
 // Zone Existence Check & Creation.
-func (p *fortigateProvider) EnsureZoneExists(domain string, metadata map[string]string) error {
+func (p *fortigateProvider) EnsureZoneExists(dc *models.DomainConfig) error {
+	domain := dc.Name
 	var probe struct{ Results []any }
 
 	err := p.client.do("GET", "system/dns-database/"+domain, nil, nil, &probe)

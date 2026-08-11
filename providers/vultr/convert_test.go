@@ -3,14 +3,12 @@ package vultr
 import (
 	"testing"
 
-	"github.com/DNSControl/dnscontrol/v4/models"
-	"github.com/vultr/govultr/v2"
+	"github.com/DNSControl/dnscontrol/v5/models"
+	"github.com/vultr/govultr/v3"
 )
 
 func TestConversion(t *testing.T) {
-	dc := &models.DomainConfig{
-		Name: "example.com",
-	}
+	dc := models.MustNewDomainConfig("example.com")
 
 	records := []govultr.DomainRecord{
 		{
@@ -60,7 +58,7 @@ func TestConversion(t *testing.T) {
 	}
 
 	for _, record := range records {
-		rc, err := toRecordConfig(dc.Name, record)
+		rc, err := toRecordConfig(dc, record)
 		if err != nil {
 			t.Error("Error converting Vultr record", record)
 		}
