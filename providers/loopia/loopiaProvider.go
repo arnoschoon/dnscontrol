@@ -252,12 +252,12 @@ func PrepDesiredRecords(dc *models.DomainConfig) {
 	// provider.  We try to do minimal changes otherwise it gets
 	// confusing.
 
-	recordsToKeep := make([]*models.RecordConfig, 0, len(dc.Records))
+	recordsToKeep := make(models.Records, 0, len(dc.Records))
 	for _, rec := range dc.Records {
 		if rec.Type == "ALIAS" {
 			// Loopia does not support ALIAS.
 			// Therefore, we change this to a CNAME.
-			rec.ChangeType("CNAME", dc.Name)
+			rec.ChangeTypeToCNAME(dc, rec.AsALIAS().Target)
 		}
 		if rec.TTL < 300 {
 			/* you can submit TTL lower than 300 but the dig results are normalized to 300 */
@@ -339,7 +339,7 @@ func (c *APIClient) GetZoneRecordsCorrections(dc *models.DomainConfig, existingR
 	}
 
 	// Determine which subdomains become extinct. Delete them.
-	_, desiredRecords := dc.Records.GroupedByFQDN()
+	desiredRecords := dc.Records.GroupedByFQDN()
 
 	for fqdn := range affectedLabels {
 		if len(desiredRecords[fqdn]) == 0 {
@@ -403,7 +403,7 @@ func (c *APIClient) GetZoneRecordsCorrections(dc *models.DomainConfig, existingR
 }
 
 // debugRecords prints a list of RecordConfig.
-func debugRecords(note string, recs []*models.RecordConfig) {
+func debugRecords(note string, recs models.Records) {
 	printer.Debugf("%s", note)
 	for k, v := range recs {
 		printer.Printf("   %v: %v %v %v %v\n", k, v.GetLabel(), v.Type, v.TTL, v.GetRDATA().String())

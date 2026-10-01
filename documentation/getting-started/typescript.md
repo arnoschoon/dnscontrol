@@ -1,5 +1,14 @@
 # Using TypeScript with DNSControl (experimental)
 
+- [What is this?](#what-is-this)
+- [How to activate auto-completion](#how-to-activate-auto-completion)
+  - [Bugs?](#bugs)
+- [Recommended: use a `tsconfig.json`](#recommended-use-a-tsconfig.json)
+- [Known bugs/issues](#known-bugs-issues)
+  - [Known issue: `require` causes TypeScript errors](#known-issue-require-causes-typescript-errors)
+  - [Bug: `CLI_DEFAULTS` not implemented](#bug-cli_defaults-not-implemented)
+  - [Known issue: `FETCH` not always accurate](#known-issue-fetch-not-always-accurate)
+
 ## What is this?
 
 Would you like your editor to support auto-completion and other advanced IDE features when editing `dnsconfig.js`? Yes you can!

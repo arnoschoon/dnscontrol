@@ -60,7 +60,7 @@ var features = providers.DocumentationNotes{
 	providers.CanUseAlias:            providers.Can(),
 	providers.CanUseCAA:              providers.Can(),
 	providers.CanUseLOC:              providers.Cannot(),
-	providers.CanUsePTR:              providers.Can(),
+	providers.CanUsePTR:              providers.Cannot(),
 	providers.CanUseSRV:              providers.Can("SRV records with empty targets are not supported"),
 	providers.CanUseTLSA:             providers.Cannot(),
 	providers.DocCreateDomains:       providers.Cannot(),
@@ -113,7 +113,7 @@ func (provider *exoscaleProvider) GetZoneRecords(domainConfig *models.DomainConf
 		return nil, err
 	}
 
-	existingRecords := make([]*models.RecordConfig, 0, len(records.DNSDomainRecords))
+	existingRecords := make(models.Records, 0, len(records.DNSDomainRecords))
 	for i := range records.DNSDomainRecords {
 		recordConfig, err := nativeToRecord(&records.DNSDomainRecords[i], domainConfig)
 		if err != nil {
@@ -256,9 +256,8 @@ func (provider *exoscaleProvider) createRecordFunc(
 			Type:     egoscale.CreateDNSDomainRecordRequestType(recordConfig.Type),
 			Content:  target,
 			Priority: prio,
-		}
 
-		record.Ttl = int64(recordConfig.TTL)
+			Ttl: int64(recordConfig.TTL)}
 
 		ctx := context.Background()
 		op, err := provider.client.CreateDNSDomainRecord(ctx, domainID, record)
@@ -352,7 +351,7 @@ func defaultNSSUffix(defNS string) bool {
 // remove all non-exoscale NS records from our desired state.
 // if any are found, print a warning.
 func removeOtherNS(domainConfig *models.DomainConfig) {
-	recordConfigs := make([]*models.RecordConfig, 0, len(domainConfig.Records))
+	recordConfigs := make(models.Records, 0, len(domainConfig.Records))
 	for _, recordConfig := range domainConfig.Records {
 		if recordConfig.Type == "NS" {
 			// apex NS inside exoscale are expected.

@@ -14,6 +14,13 @@ type Void struct{}
 
 // fetchDomainList gets list of zones for account.
 func (c *ovhProvider) fetchZones() error {
+	// If we're in "pretend ListZones() isn't implemented mode" we return an
+	// empty list.  Elsewhere, we disable functionality that would require
+	// having the entire list of zones.
+	if !listzonesEnabled() {
+		return nil
+	}
+
 	if c.zones != nil {
 		return nil
 	}
@@ -117,8 +124,7 @@ func (c *ovhProvider) createRecordFunc(rc *models.RecordConfig, fqdn string) fun
 			// OVH stores and returns DKIM/DMARC targets as raw, unquoted,
 			// un-chunked text (see nativeToRecord). GetRDATA().String()
 			// would render values over 255 bytes as multiple quoted
-			// segments ("chunk1" "chunk2"), which OVH rejects once the
-			// outer quotes are stripped in adaptNativeRecord.
+			// segments ("chunk1" "chunk2"), which OVH rejects.
 			target = rc.GetTargetTXTJoined()
 		default:
 			target = rc.GetRDATA().String()

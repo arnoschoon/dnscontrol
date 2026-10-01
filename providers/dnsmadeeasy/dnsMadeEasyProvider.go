@@ -63,9 +63,10 @@ func init() {
 				Required: true,
 			},
 			{
-				Key:   "sandbox",
-				Label: "Use sandbox (optional)",
-				Help:  "Set to any non-empty value to use the DNS Made Easy sandbox API instead of production.",
+				Key:          "sandbox",
+				Label:        "Use the DNS Made Easy sandbox API instead of production?",
+				Help:         "Answer no for normal use. The sandbox needs its own API credentials from https://sandbox.dnsmadeeasy.com/.",
+				ConfirmValue: "1",
 			},
 		},
 	})
@@ -224,7 +225,7 @@ func (api *dnsMadeEasyProvider) GetZoneRecords(dc *models.DomainConfig) (models.
 		return nil, err
 	}
 
-	existingRecords := make([]*models.RecordConfig, 0, len(records))
+	existingRecords := make(models.Records, 0, len(records))
 	for i := range records {
 		// Ignore HTTPRED and SPF records
 		if records[i].Type == "HTTPRED" || records[i].Type == "SPF" {

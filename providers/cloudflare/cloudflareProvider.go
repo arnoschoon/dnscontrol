@@ -117,7 +117,7 @@ func init() {
 			},
 			{
 				Key:   "accountid",
-				Label: "Account ID (optional)",
+				Label: "Account ID",
 				Help:  "Cloudflare account ID. Required to manage zones in a specific account when the credentials have access to more than one.",
 			},
 		},
@@ -238,9 +238,6 @@ func (c *cloudflareProvider) GetZoneRecords(dc *models.DomainConfig) (models.Rec
 	records = append(records, redirectRes.records...)
 	records = append(records, workerRes.records...)
 
-	// Normalize
-	models.PostProcessRecords(records)
-
 	return records, nil
 }
 
@@ -254,11 +251,6 @@ func (c *cloudflareProvider) getDomainID(name string) (string, error) {
 
 // GetZoneRecordsCorrections returns a list of corrections that will turn existing records into dc.Records.
 func (c *cloudflareProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, records models.Records) ([]*models.Correction, int, error) {
-	for _, rec := range dc.Records {
-		if rec.Type == "ALIAS" {
-			rec.ChangeType("CNAME", dc.Name)
-		}
-	}
 
 	if err := c.preprocessConfig(dc); err != nil {
 		return nil, 0, err
@@ -478,7 +470,7 @@ func (c *cloudflareProvider) mkDeleteCorrection(recType string, origRec *models.
 }
 
 func checkNSModifications(dc *models.DomainConfig) {
-	newList := make([]*models.RecordConfig, 0, len(dc.Records))
+	newList := make(models.Records, 0, len(dc.Records))
 
 	punyRoot, err := idna.ToASCII(dc.Name)
 	if err != nil {
@@ -549,9 +541,10 @@ func checkCNAMEFlattenVal(v string) (string, error) {
 
 func (c *cloudflareProvider) preprocessConfig(dc *models.DomainConfig) error {
 
+	// Cloudflare's CNAMEs works like our virtual ALIAS type:
 	for _, rec := range dc.Records {
 		if rec.Type == "ALIAS" {
-			rec.ChangeType("CNAME", dc.Name)
+			rec.ChangeTypeToCNAME(dc, rec.AsALIAS().Target)
 		}
 	}
 
@@ -665,7 +658,15 @@ func (c *cloudflareProvider) preprocessConfig(dc *models.DomainConfig) error {
 		}
 
 		switch rec.TypeNum {
+		case privatetypes.TypeCFWORKERROUTE:
+			// Worker Routes have no DNS TTL. Match provider read-back, which
+			// constructs TTL 1, so an inherited DefaultTTL does not cause a
+			// TTL-only correction on every preview.
+			rec.TTL = 1
 		case privatetypes.TypeCLOUDFLAREAPISINGLEREDIRECT:
+			// HTTP redirects have no DNS TTL. Match provider read-back and the
+			// CF_REDIRECT/CF_TEMP_REDIRECT builders, including explicit TTLs.
+			rec.TTL = 1
 			// SINGLEREDIRECT record types. Verify they are enabled.
 			if !c.manageSingleRedirects {
 				return errors.New("you must add 'manage_single_redirects: true' metadata to cloudflare provider to use CLOUDFLAREAPI_SINGLE_REDIRECT records")
@@ -877,7 +878,7 @@ func (c cfTarget) MarshalJSON() ([]byte, error) {
 	return json.Marshal(obj)
 }
 
-// DNSControlString returns cfTarget normalized to be a FQDN. Null targets are
+// FQDN returns cfTarget normalized to be a FQDN. Null targets are
 // represented by a single period.
 func (c cfTarget) FQDN() string {
 	return strings.TrimRight(string(c), ".") + "."

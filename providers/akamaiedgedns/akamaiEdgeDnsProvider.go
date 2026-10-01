@@ -16,9 +16,12 @@ import (
 
 	"github.com/DNSControl/dnscontrol/v5/models"
 	"github.com/DNSControl/dnscontrol/v5/pkg/diff2"
+	"github.com/DNSControl/dnscontrol/v5/pkg/nrc"
 	"github.com/DNSControl/dnscontrol/v5/pkg/printer"
+	"github.com/DNSControl/dnscontrol/v5/pkg/privatetypes"
+	privatetypesrdata "github.com/DNSControl/dnscontrol/v5/pkg/privatetypes/rdata"
 	"github.com/DNSControl/dnscontrol/v5/pkg/providers"
-	"github.com/akamai/AkamaiOPEN-edgegrid-golang/v12/pkg/dns"
+	"github.com/akamai/AkamaiOPEN-edgegrid-golang/v13/pkg/dns"
 )
 
 var features = providers.DocumentationNotes{
@@ -46,14 +49,19 @@ var features = providers.DocumentationNotes{
 }
 
 type edgeDNSProvider struct {
+	observer   providers.ConversionObserver
 	contractID string
 	groupID    string
 	client     dns.DNS
 }
 
+func (a *edgeDNSProvider) SetConversionObserver(observer providers.ConversionObserver) {
+	a.observer = observer
+}
+
 func init() {
 	const providerName = "AKAMAIEDGEDNS"
-	const providerMaintainer = "@edglynes"
+	const providerMaintainer = "@meghanakudua02"
 	fns := providers.DspFuncs{
 		Initializer:   newEdgeDNSDSP,
 		RecordAuditor: AuditRecords,
@@ -111,7 +119,7 @@ func init() {
 }
 
 // DnsServiceProvider.
-func newEdgeDNSDSP(config map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
+func newEdgeDNSDSP(config map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
 	clientSecret := config["client_secret"]
 	host := config["host"]
 	accessToken := config["access_token"]
@@ -272,13 +280,20 @@ func (a *edgeDNSProvider) preprocessConfig(dc *models.DomainConfig) error {
 	for _, rec := range dc.Records {
 		// Convert ALIAS records to the Akamai equivalents. AKAMAITLC is only valid
 		// at the apex, so any other ALIAS must be converted to CNAME.
-		if rec.Type == "ALIAS" {
+		if rec.TypeNum == privatetypes.TypeALIAS {
+			target := rec.AsALIAS().Target
 			if rec.Name == "@" {
-				rec.ChangeType("AKAMAITLC", dc.Name)
-				rec.AnswerType = "DUAL"
-				// rec.RecomputeV3Fields(dc.Name)
+				// AKAMAITLC works at the domain's apex.
+				rec.Type = "AKAMAITLC"
+				rec.TypeNum = privatetypes.TypeAKAMAITLC
+				rd, err := privatetypesrdata.MakeAKAMAITLC(dc.Name, nil, nrc.Flags{}, "DUAL", target)
+				if err != nil {
+					return err
+				}
+				rec.SetRDATA(rd)
 			} else {
-				rec.ChangeType("CNAME", dc.Name)
+				// Non-apex uses a CNAME.
+				rec.ChangeTypeToCNAME(dc, target)
 			}
 		}
 	}

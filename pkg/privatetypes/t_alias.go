@@ -43,10 +43,8 @@ func (rr *ALIAS) Data() dnsv2.RDATA {
 }
 func (rr *ALIAS) Clone() dnsv2.RR {
 	return &ALIAS{
-		Hdr: rr.Hdr,
-		ALIAS: privatetypesrdata.ALIAS{
-			Target: rr.Target,
-		}}
+		Hdr:    rr.Hdr,
+		Target: rr.Target}
 }
 func (rr *ALIAS) String() string {
 	return (rr.Header().Name + "\t" +
@@ -60,7 +58,11 @@ func (rr *ALIAS) Parse(tokens []string, s string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("ALIAS requires exactly 1 arguments, got %d: %v", len(args), args)
 	}
-	rr.Target = mustbe.TargetHost("", nrc.Flags{}, args[0])
+	targetHost0, err := mustbe.TargetHost("", nrc.Flags{}, args[0])
+	if err != nil {
+		return err
+	}
+	rr.Target = targetHost0
 	return nil
 }
 

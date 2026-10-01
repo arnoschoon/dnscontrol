@@ -48,10 +48,9 @@ func newRoute53Reg(conf map[string]string) (providers.Registrar, error) {
 	// AWS European Sovereign Cloud (aws.eu) does not support registering domains, at least not yet.
 	// Let us assume only the global AWS is capable of registering domains currently.
 	if conf["Region"] != "" && conf["Region"] != "us-east-1" {
-		return nil, errors.New("Error! Domain register endpoint is only supported on the global AWS region us-east-1")
-	} else {
-		return newRoute53(conf, nil)
+		return nil, errors.New("domain register endpoint is only supported on the global AWS region us-east-1")
 	}
+	return newRoute53(conf, nil)
 }
 
 func newRoute53Dsp(conf map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
@@ -79,7 +78,7 @@ func newRoute53(m map[string]string, _ json.RawMessage) (*route53Provider, error
 
 	profile := m["Profile"]
 	if profile != "" && (keyID != "" || secretKey != "") {
-		return nil, fmt.Errorf("route53: cannot set both Profile and KeyId/SecretKey")
+		return nil, errors.New("route53: cannot set both Profile and KeyId/SecretKey")
 	}
 	if profile != "" {
 		optFns = append(optFns, config.WithSharedConfigProfile(profile))
@@ -164,7 +163,7 @@ func init() {
 		Fields: []providers.CredsField{
 			{
 				Key:    "Region",
-				Label:  "AWS Region to use for Route 53 control plane (optional)",
+				Label:  "AWS Region to use for Route 53 control plane",
 				Help:   "Leave blank to use default global Route 53 in us-east-1. Type \"eusc-de-east-1\" for AWS European Sovereign Cloud.",
 				EnvVar: "AWS_DEFAULT_REGION",
 			},
@@ -202,7 +201,7 @@ func init() {
 			},
 			{
 				Key:    "Token",
-				Label:  "AWS session token (optional)",
+				Label:  "AWS session token",
 				Help:   "STS session token. Leave blank unless you are using temporary credentials.",
 				EnvVar: "AWS_SESSION_TOKEN",
 				Secret: true,
@@ -210,17 +209,17 @@ func init() {
 			},
 			{
 				Key:   "RoleArn",
-				Label: "Role ARN to assume (optional)",
+				Label: "Role ARN to assume",
 				Help:  "If set, dnscontrol will call sts:AssumeRole on this ARN using the source credentials selected above. Leave blank to use the source credentials directly.",
 			},
 			{
 				Key:   "ExternalId",
-				Label: "External ID for AssumeRole (optional)",
+				Label: "External ID for AssumeRole",
 				Help:  "External ID required by some trust policies. Only relevant when RoleArn is set.",
 			},
 			{
 				Key:   "DelegationSet",
-				Label: "Reusable delegation set ID (optional)",
+				Label: "Reusable delegation set ID",
 				Help:  "Existing Route 53 reusable delegation set ID (the value after /delegationset/). Only applied when creating new domains.",
 			},
 		},
@@ -561,7 +560,7 @@ func (r *route53Provider) GetZoneRecordsCorrections(dc *models.DomainConfig, exi
 	return append(reports, corrections...), actualChangeCount, nil
 }
 
-func nativeToRecords(dc *models.DomainConfig, set r53Types.ResourceRecordSet, origin string) ([]*models.RecordConfig, error) {
+func nativeToRecords(dc *models.DomainConfig, set r53Types.ResourceRecordSet, origin string) (models.Records, error) {
 	if origin != dc.Name {
 		panic(fmt.Sprintf("Obviously I don't understand what's going on. %q != %q", origin, dc.Name))
 	}
@@ -920,11 +919,11 @@ func (b *changeBatcher) Next() bool {
 			// "When the value of the Action element is UPSERT, each ResourceRecord element is counted twice."
 			rrsetSize *= 2
 		}
-		if newReqSize := reqSize + rrsetSize; newReqSize > b.maxSize {
+		newReqSize := reqSize + rrsetSize
+		if newReqSize > b.maxSize {
 			break
-		} else {
-			reqSize = newReqSize
 		}
+		reqSize = newReqSize
 
 		// Check that we won't exceed 32000 Value characters in the request.
 		var rrsetChars int
@@ -935,11 +934,11 @@ func (b *changeBatcher) Next() bool {
 			// "When the value of the Action element is UPSERT, each character in a Value element is counted twice."
 			rrsetChars *= 2
 		}
-		if newReqChars := reqChars + rrsetChars; newReqChars > b.maxChars {
+		newReqChars := reqChars + rrsetChars
+		if newReqChars > b.maxChars {
 			break
-		} else {
-			reqChars = newReqChars
 		}
+		reqChars = newReqChars
 
 		end++
 	}

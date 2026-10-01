@@ -27,8 +27,15 @@ func isValidAliDNSString(s string) bool {
 }
 
 // labelConstraint detects labels that contain non-ASCII characters except Chinese characters.
+// Punycode-encoded labels (xn--...) are decoded to Unicode before checking so that
+// non-Chinese IDN labels such as xn--ndaaa (ööö) are correctly rejected.
 func labelConstraint(rc *models.RecordConfig) error {
-	if !isValidAliDNSString(rc.GetLabel()) {
+	label := rc.GetLabel()
+	decoded, err := idna.ToUnicode(label)
+	if err == nil {
+		label = decoded
+	}
+	if !isValidAliDNSString(label) {
 		return errors.New("label contains non-ASCII characters (only Chinese is allowed)")
 	}
 	return nil
@@ -62,7 +69,7 @@ func targetConstraint(rc *models.RecordConfig) error {
 // AuditRecords returns a list of errors corresponding to the records
 // that aren't supported by this provider.  If all records are
 // supported, an empty list is returned.
-func AuditRecords(records []*models.RecordConfig) []error {
+func AuditRecords(records models.Records) []error {
 	// Note: We can't get domain version info here because AuditRecords
 	// is called without provider context. TTL validation will be done
 	// at the provider level in GetZoneRecordsCorrections.

@@ -24,10 +24,15 @@ type gcoreProvider struct {
 	provider *dnssdk.Client
 	ctx      context.Context
 	apiKey   string
+	observer providers.ConversionObserver
+}
+
+func (c *gcoreProvider) SetConversionObserver(observer providers.ConversionObserver) {
+	c.observer = observer
 }
 
 // NewGCore creates the provider.
-func NewGCore(m map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
+func NewGCore(m map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
 	if m["api-key"] == "" {
 		return nil, errors.New("missing G-Core API key")
 	}
@@ -119,7 +124,9 @@ func (c *gcoreProvider) GetZoneRecords(dc *models.DomainConfig) (models.Records,
 	}
 
 	for _, rec := range rrsets.RRSets {
+		before := providers.BeginToRC(c.observer, "nativeToRecords", rec)
 		nativeRecords, err := nativeToRecords(rec, dc)
+		providers.EndToRC(c.observer, "nativeToRecords", before, rec, nativeRecords, err)
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +174,7 @@ func (c *gcoreProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, exist
 	// Gcore auto uses ALIAS for apex zone CNAME records, just like CloudFlare
 	for _, rec := range dc.Records {
 		if rec.Type == "ALIAS" {
-			rec.ChangeType("CNAME", dc.Name)
+			rec.ChangeTypeToCNAME(dc, rec.AsALIAS().Target)
 		}
 	}
 
@@ -177,7 +184,15 @@ func (c *gcoreProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, exist
 	}
 
 	for _, change := range changes {
+		observeConversion := change.Type == diff2.CREATE || change.Type == diff2.CHANGE
+		var before providers.ConversionSnapshot
+		if observeConversion {
+			before = providers.BeginToNative(c.observer, "recordsToNative", change.New)
+		}
 		record, err := recordsToNative(change.New, change.Key)
+		if observeConversion {
+			providers.EndToNative(c.observer, "recordsToNative", before, change.New, record, err)
+		}
 		if err != nil {
 			return nil, 0, err
 		}

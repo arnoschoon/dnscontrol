@@ -2,6 +2,7 @@ package alidns
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -78,15 +79,15 @@ type domainVersionInfo struct {
 	maxTTL      uint32
 }
 
-func newAliDNSDsp(config map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
+func newAliDNSDsp(config map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
 	accessKeyID := config["access_key_id"]
 	if accessKeyID == "" {
-		return nil, fmt.Errorf("creds.json: access_key_id must not be empty")
+		return nil, errors.New("creds.json: access_key_id must not be empty")
 	}
 
 	accessKeySecret := config["access_key_secret"]
 	if accessKeySecret == "" {
-		return nil, fmt.Errorf("creds.json: access_key_secret must not be empty")
+		return nil, errors.New("creds.json: access_key_secret must not be empty")
 	}
 
 	// Region ID defaults to "cn-hangzhou". The region value does not affect
@@ -189,7 +190,7 @@ func (a *aliDNSDsp) PrepDesiredRecords(dc *models.DomainConfig) {
 		return
 	}
 
-	recordsToKeep := make([]*models.RecordConfig, 0, len(dc.Records))
+	recordsToKeep := make(models.Records, 0, len(dc.Records))
 
 	for _, rec := range dc.Records {
 		// If TTL is 0 (not set), use the minimum TTL as default

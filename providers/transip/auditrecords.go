@@ -8,7 +8,7 @@ import (
 // AuditRecords returns a list of errors corresponding to the records
 // that aren't supported by this provider.  If all records are
 // supported, an empty list is returned.
-func AuditRecords(records []*models.RecordConfig) []error {
+func AuditRecords(records models.Records) []error {
 	a := rejectif.Auditor{}
 
 	a.Add("TXT", rejectif.TxtHasBackslash) // Last verified 2026-07-21
@@ -16,6 +16,10 @@ func AuditRecords(records []*models.RecordConfig) []error {
 	a.Add("TXT", rejectif.TxtHasBackticks) // Last verified 2026-07-21
 
 	a.Add("TXT", rejectif.TxtHasDoubleQuotes) // Last verified 2026-07-21
+
+	a.Add("TXT", rejectif.TxtHasTrailingSpace) // Last verified 2026-07-21
+
+	a.Add("TXT", rejectif.TxtIsEmpty) // Last verified 2026-08-28
 
 	return a.Audit(records)
 }

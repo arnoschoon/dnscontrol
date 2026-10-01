@@ -100,6 +100,9 @@ provider-HOSTINGDE:
 provider-HUAWEICLOUD:
   - changed-files:
       - any-glob-to-any-file: providers/huaweicloud/**
+provider-INFOBLOX:
+  - changed-files:
+      - any-glob-to-any-file: providers/infoblox/**
 provider-INFOMANIAK:
   - changed-files:
       - any-glob-to-any-file: providers/infomaniak/**
@@ -124,6 +127,9 @@ provider-LUADNS:
 provider-MIKROTIK:
   - changed-files:
       - any-glob-to-any-file: providers/mikrotik/**
+provider-MITTWALD:
+  - changed-files:
+      - any-glob-to-any-file: providers/mittwald/**
 provider-MYTHICBEASTS:
   - changed-files:
       - any-glob-to-any-file: providers/mythicbeasts/**
@@ -151,6 +157,9 @@ provider-NEXDNS:
 provider-NS1:
   - changed-files:
       - any-glob-to-any-file: providers/ns1/**
+provider-OPENPROVIDER:
+  - changed-files:
+      - any-glob-to-any-file: providers/openprovider/**
 provider-OPENSRS:
   - changed-files:
       - any-glob-to-any-file: providers/opensrs/**
@@ -190,6 +199,9 @@ provider-SCALEWAY:
 provider-SOFTLAYER:
   - changed-files:
       - any-glob-to-any-file: providers/softlayer/**
+provider-SPACESHIP:
+  - changed-files:
+      - any-glob-to-any-file: providers/spaceship/**
 provider-TENCENTDNS:
   - changed-files:
       - any-glob-to-any-file: providers/tencentdns/**

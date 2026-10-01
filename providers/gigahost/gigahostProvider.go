@@ -15,8 +15,7 @@ import (
 	"github.com/DNSControl/dnscontrol/v5/pkg/txtutil"
 )
 
-// features describes the capabilities of the Gigahost provider. Start with
-// zero optional capabilities; only A/AAAA/CNAME/MX/TXT/NS are handled.
+// features describes the capabilities of the Gigahost provider.
 var features = providers.DocumentationNotes{
 	// The default for unlisted capabilities is 'Cannot'.
 	// See providers/capabilities.go for the entire list of capabilities.
@@ -69,7 +68,7 @@ func newGigahost(settings map[string]string, _ json.RawMessage) (providers.DNSSe
 
 // AuditRecords returns a list of errors corresponding to the records that
 // aren't supported by this provider.
-func AuditRecords(records []*models.RecordConfig) []error {
+func AuditRecords(records models.Records) []error {
 	a := rejectif.Auditor{}
 	a.Add("MX", rejectif.MxNull) // The API rejects a "." target ("MX record value must be a valid mail server hostname").
 	a.Add("TXT", rejectif.TxtIsEmpty)
@@ -289,21 +288,7 @@ func recordConfigToRequest(rc *models.RecordConfig) *recordRequest {
 		f := rc.AsMX()
 		r.RecordPrio = new(f.Preference)
 		r.RecordValue = strings.TrimSuffix(f.Mx, ".")
-	// case "CNAME", "NS", "ALIAS", "PTR", "DNAME":
-	// 	// Send hostname targets without a trailing dot; the API normalizes as
-	// 	// needed and reads are re-dotted in nativeToRecordConfig.
-	// 	r.RecordValue = strings.TrimSuffix(rc.GetTargetField(), ".")
 	case dnsv2.TypeTXT:
-		// txt := rc.GetTargetTXTJoined()
-		// // The API requires values over 255 octets to be sent as RFC1035
-		// // quoted 255-octet chunks: `"aaa...aaa" "bbb"`. Shorter values are
-		// // sent raw and stored verbatim. (Values with double quotes are
-		// // rejected by AuditRecords: the API cannot round-trip them.)
-		// if len(txt) > 255 {
-		// 	txt = txtutil.EncodeQuoted(txt)
-		// }
-		// r.RecordValue = txt
-
 		txt := rc.GetTargetTXTJoined()
 		if len(txt) > 255 {
 			r.RecordValue = rc.AsTXT().String()
@@ -311,9 +296,6 @@ func recordConfigToRequest(rc *models.RecordConfig) *recordRequest {
 			r.RecordValue = txt
 		}
 
-	// case "CAA", "SRV", "NAPTR":
-	// 	// These are stored as full RFC1035 presentation strings in record_value.
-	// 	r.RecordValue = rc.GetRDATA().String()
 	default:
 		r.RecordValue = rc.GetRDATA().String()
 	}

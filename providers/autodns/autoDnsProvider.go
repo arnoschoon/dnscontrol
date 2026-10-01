@@ -16,6 +16,7 @@ import (
 	dnsv2 "codeberg.org/miekg/dns"
 	"github.com/DNSControl/dnscontrol/v5/models"
 	"github.com/DNSControl/dnscontrol/v5/pkg/diff2"
+	"github.com/DNSControl/dnscontrol/v5/pkg/nrc"
 	"github.com/DNSControl/dnscontrol/v5/pkg/providers"
 	"github.com/DNSControl/dnscontrol/v5/providers/bind"
 )
@@ -94,7 +95,7 @@ func init() {
 			},
 			{
 				Key:    "totp-key",
-				Label:  "TOTP shared secret (optional)",
+				Label:  "TOTP shared secret",
 				Help:   "Shared TOTP secret used to generate the 2FA token. Only needed if two factor authentication is enabled for the account.",
 				Secret: true,
 			},
@@ -224,12 +225,14 @@ func recordsToNative(recs models.Records) ([]*models.Nameserver, uint32, []*Reso
 
 			switch rc.TypeNum {
 			case dnsv2.TypeMX:
+				// AutoDNS carries the preference in its own "pref" field,
+				// so "value" must be the bare target FQDN. Using the full
+				// RDATA here repeats the preference ("10 mail.example.net.")
+				// and the gateway rejects the entire zone update with
+				// EF020541 "The MX resource record value is invalid.".
 				f := rc.AsMX()
-				resourceRecord.Pref = int32(f.Preference)
-				resourceRecord.Value = rc.GetRDATA().String()
-				// If that doesn't work, try:
-				//resourceRecord.Pref = int32(f.Preference)
-				//resourceRecord.Value = f.Mx
+				resourceRecord.Pref = new(int32(f.Preference))
+				resourceRecord.Value = f.Mx
 
 			// case dnsv2.TypeSRV:
 			// 	resourceRecord.Value = rc.GetRDATA().String()
@@ -266,7 +269,7 @@ func (api *autoDNSProvider) GetZoneRecords(dc *models.DomainConfig) (models.Reco
 		return nil, err
 	}
 
-	existingRecords := make([]*models.RecordConfig, len(zone.ResourceRecords))
+	existingRecords := make(models.Records, len(zone.ResourceRecords))
 	for i, resourceRecord := range zone.ResourceRecords {
 		var err error
 		existingRecords[i], err = toRecordConfig(dc, resourceRecord)
@@ -394,9 +397,10 @@ func toRecordConfig(dc *models.DomainConfig, record *ResourceRecord) (*models.Re
 	ttl := uint32(record.TTL)
 	switch record.Type {
 	case "MX":
-		rc, err = dc.NewRecordConfig(label, ttl, dnsv2.TypeMX, uint16(record.Pref), record.Value)
+		rc, err = dc.NewRecordConfig(label, ttl, dnsv2.TypeMX, uint16(record.pref()), record.Value)
 	case "SRV":
-		rc, err = dc.NewRecordConfigParse(label, ttl, dnsv2.TypeSRV, fmt.Sprintf("%d %s", record.Pref, record.Value))
+		rc, err = dc.NewRecordConfig(label, ttl, dnsv2.TypeSRV, record.pref(), record.Value,
+			nrc.Flags{SrvWeirdSplit: true})
 	default:
 		rc, err = dc.NewRecordConfigParse(label, ttl, record.Type, record.Value)
 	}

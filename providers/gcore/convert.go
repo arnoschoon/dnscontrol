@@ -13,9 +13,10 @@ import (
 )
 
 // nativeToRecord takes a DNS record from G-Core and returns a native RecordConfig struct.
-func nativeToRecords(n gcoreRRSetExtended, dc *models.DomainConfig) ([]*models.RecordConfig, error) {
-	var rcs []*models.RecordConfig
-	recName := dc.LabelFromFQDNWithDot(n.Name)
+func nativeToRecords(n gcoreRRSetExtended, dc *models.DomainConfig) (models.Records, error) {
+	var rcs models.Records
+	// G-Core returns FQDNs without a trailing dot ("www.example.com").
+	recName := dc.LabelFromFQDNNoDot(n.Name)
 	recType := n.Type
 
 	// Split G-Core's RRset into individual records
@@ -46,7 +47,7 @@ func nativeToRecords(n gcoreRRSetExtended, dc *models.DomainConfig) ([]*models.R
 		case "SCVB": // GCore mistypes "SVCB" as "SCVB"
 			rc, err = dc.NewRecordConfigParse(recName, uint32(n.TTL), "SVCB", value.ContentToString())
 
-		default: //  "A", "AAAA", "CAA", "NS", "CNAME", "MX", "PTR", "SRV"
+		default:
 			rc, err = dc.NewRecordConfigParse(recName, uint32(n.TTL), recType, value.ContentToString())
 		}
 		if err != nil {
@@ -60,7 +61,7 @@ func nativeToRecords(n gcoreRRSetExtended, dc *models.DomainConfig) ([]*models.R
 	return rcs, nil
 }
 
-func recordsToNative(rcs []*models.RecordConfig, expectedKey models.RecordKey) (*dnssdk.RRSet, error) {
+func recordsToNative(rcs models.Records, expectedKey models.RecordKey) (*dnssdk.RRSet, error) {
 	// Merge DNSControl records into G-Core RRsets
 
 	var result *dnssdk.RRSet

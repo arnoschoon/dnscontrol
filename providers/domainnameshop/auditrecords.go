@@ -8,11 +8,11 @@ import (
 // AuditRecords returns a list of errors corresponding to the records
 // that aren't supported by this provider.  If all records are
 // supported, an empty list is returned.
-func AuditRecords(records []*models.RecordConfig) []error {
+func AuditRecords(records models.Records) []error {
 	a := rejectif.Auditor{}
 
 	// last verified 2026-08-05
-	// Domeneshop does not allow NS records at the apex: the apex nameservers
+	// DomainNameShop does not allow NS records at the apex: the apex nameservers
 	// are managed at the delegation level and are synthesized read-only from
 	// the /domains endpoint (see api.go). POSTing an apex NS record returns
 	// "400 - DNS record failed validation".

@@ -20,7 +20,7 @@ Info required in `creds.json`:
 */
 
 // NewDeSec creates the provider.
-func NewDeSec(m map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
+func NewDeSec(m map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
 	c := &desecProvider{}
 	c.token = strings.TrimSpace(m["auth-token"])
 	if c.token == "" {
@@ -140,7 +140,7 @@ func PrepDesiredRecords(dc *models.DomainConfig, minTTL uint32) {
 	// * ALIAS: Skip them in recordsToNative()
 	// * minTTL: recordsToNative() should return records with fixed TTLs.
 
-	recordsToKeep := make([]*models.RecordConfig, 0, len(dc.Records))
+	recordsToKeep := make(models.Records, 0, len(dc.Records))
 	for _, rec := range dc.Records {
 		if rec.Type == "ALIAS" {
 			// deSEC does not permit ALIAS records, just ignore it
@@ -188,10 +188,10 @@ func (c *desecProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, exist
 
 		case diff2.DELETE:
 			// An empty array of records deletes this rrset.
-			rc := resourceRecord{}
-			rc.Type = change.Key.Type
-			rc.Records = make([]string, 0)
-			rc.TTL = 3600
+			rc := resourceRecord{
+				Type:    change.Key.Type,
+				Records: make([]string, 0),
+				TTL:     3600}
 			shortname := dc.ToShort(change.Key.NameFQDN)
 			if shortname == "@" {
 				shortname = ""

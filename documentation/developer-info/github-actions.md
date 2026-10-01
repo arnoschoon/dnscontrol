@@ -1,14 +1,28 @@
 # GitHub Actions
 
+- [PR Checks Overview](#pr-checks-overview)
+- [Check: git status](#check-git-status)
+  - [Check: go fmt](#check-go-fmt)
+  - [Check: prettier](#check-prettier)
+  - [Check: fmtjson](#check-fmtjson)
+  - [Check: go mod tidy](#check-go-mod-tidy)
+  - [Check: go generate](#check-go-generate)
+  - [Check: go fix](#check-go-fix)
+- [Lint](#lint)
+- [Build and Test](#build-and-test)
+- [Commitlint](#commitlint)
+- [Running all checks at once](#running-all-checks-at-once)
+
 ## PR Checks Overview
 
 Every pull request runs the following GitHub Actions workflows. All checks must pass before a PR can be merged.
 
 | Workflow | File | Description |
-|---|---|---|
+| --- | --- | --- |
 | **Check git status** | `pr_check_git_status.yml` | Ensures all generated/formatted files are committed |
 | **Lint** | `pr_lint.yml` | Runs `golangci-lint` |
 | **Build & Test** | `pr_build.yml` | Runs unit tests and builds binaries via GoReleaser |
+| **Commitlint** | `pr_commitlint.yml` | Checks that the pull request title follows Conventional Commits |
 
 ## Check: git status
 
@@ -102,7 +116,7 @@ golangci-lint run ./...
 
 See `.golangci.yml` for the list of enabled linters and their settings.
 
-## Build & Test
+## Build and Test
 
 Runs all unit tests with `gotestsum` and builds binaries for all platforms using GoReleaser.
 
@@ -111,6 +125,17 @@ Runs all unit tests with `gotestsum` and builds binaries for all platforms using
 ```bash
 go test ./...
 go build .
+```
+
+## Commitlint
+
+Checks the pull request title against the Conventional Commits rules in `commitlint.config.js`. Only the title is checked, not the commits inside the pull request, because DNSControl squash-merges pull requests and the title becomes the commit message on `main`. Editing the title re-runs the check. See [Pull request titles](https://github.com/DNSControl/dnscontrol/blob/main/CONTRIBUTING.md#pull-request-titles) for the rules.
+
+**How to check locally:**
+
+```bash
+npm install
+echo "fix(p/ROUTE53): correct TTL rounding" | npx commitlint
 ```
 
 ## Running all checks at once

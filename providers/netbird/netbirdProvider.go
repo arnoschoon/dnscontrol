@@ -45,7 +45,7 @@ type netbirdProvider struct {
 }
 
 // NewNetbird creates a NetBird-specific DNS provider.
-func NewNetbird(m map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
+func NewNetbird(m map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
 	if m["token"] == "" {
 		return nil, errors.New("no NetBird token provided")
 	}
@@ -120,7 +120,7 @@ func init() {
 }
 
 // AuditRecords returns a list of errors for records that aren't supported.
-func AuditRecords(records []*models.RecordConfig) []error {
+func AuditRecords(records models.Records) []error {
 	var errs []error
 	for _, rc := range records {
 		if !supportedRecordTypes[rc.Type] {

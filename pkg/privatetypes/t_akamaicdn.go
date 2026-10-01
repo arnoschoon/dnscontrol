@@ -43,10 +43,8 @@ func (rr *AKAMAICDN) Data() dnsv2.RDATA {
 }
 func (rr *AKAMAICDN) Clone() dnsv2.RR {
 	return &AKAMAICDN{
-		Hdr: rr.Hdr,
-		AKAMAICDN: privatetypesrdata.AKAMAICDN{
-			Target: rr.Target,
-		}}
+		Hdr:    rr.Hdr,
+		Target: rr.Target}
 }
 func (rr *AKAMAICDN) String() string {
 	return (rr.Header().Name + "\t" +
@@ -60,7 +58,11 @@ func (rr *AKAMAICDN) Parse(tokens []string, s string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("AKAMAICDN requires exactly 1 arguments, got %d: %v", len(args), args)
 	}
-	rr.Target = mustbe.TargetHost("", nrc.Flags{}, args[0])
+	targetHost0, err := mustbe.TargetHost("", nrc.Flags{}, args[0])
+	if err != nil {
+		return err
+	}
+	rr.Target = targetHost0
 	return nil
 }
 

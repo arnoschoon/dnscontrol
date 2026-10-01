@@ -13,8 +13,8 @@ import (
 	"github.com/DNSControl/dnscontrol/v5/pkg/printer"
 	"github.com/DNSControl/dnscontrol/v5/pkg/rfc4183"
 	"github.com/DNSControl/dnscontrol/v5/pkg/transform"
-	"github.com/robertkrimen/otto"              // load underscore js into vm by default
-	_ "github.com/robertkrimen/otto/underscore" // required by otto
+	"github.com/robertkrimen/otto"              // required by otto
+	_ "github.com/robertkrimen/otto/underscore" // load underscore js into vm by default
 	"github.com/xddxdd/ottoext/fetch"
 	"github.com/xddxdd/ottoext/loop"
 	"github.com/xddxdd/ottoext/promise"
@@ -103,6 +103,12 @@ func ExecuteJavascriptString(script []byte, devMode bool, variables map[string]s
 
 	// wait for event loop to finish
 	if err := l.Run(); err != nil {
+		return nil, err
+	}
+
+	// Neutral providers acquire roles from the completed domains, including any
+	// defaults, extensions, helpers and asynchronous changes made by the script.
+	if _, err := vm.Call("_finalizeProviders", nil); err != nil {
 		return nil, err
 	}
 

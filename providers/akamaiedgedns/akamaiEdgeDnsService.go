@@ -18,9 +18,10 @@ import (
 	"github.com/DNSControl/dnscontrol/v5/models"
 	"github.com/DNSControl/dnscontrol/v5/pkg/printer"
 	"github.com/DNSControl/dnscontrol/v5/pkg/privatetypes"
-	"github.com/akamai/AkamaiOPEN-edgegrid-golang/v12/pkg/dns"
-	"github.com/akamai/AkamaiOPEN-edgegrid-golang/v12/pkg/edgegrid"
-	"github.com/akamai/AkamaiOPEN-edgegrid-golang/v12/pkg/session"
+	"github.com/DNSControl/dnscontrol/v5/pkg/providers"
+	"github.com/akamai/AkamaiOPEN-edgegrid-golang/v13/pkg/dns"
+	"github.com/akamai/AkamaiOPEN-edgegrid-golang/v13/pkg/edgegrid"
+	"github.com/akamai/AkamaiOPEN-edgegrid-golang/v13/pkg/session"
 )
 
 // initialize initializes the "Akamai OPEN EdgeGrid" library.
@@ -210,31 +211,37 @@ func (a *edgeDNSProvider) getAuthorities(ctx context.Context, contractID string)
 }
 
 // rcToRs converts DNSControl RecordConfig records to an AkamaiEdgeDNS recordset.
-func (a *edgeDNSProvider) rcToRs(records []*models.RecordConfig) (*dns.RecordBody, error) {
+func (a *edgeDNSProvider) rcToRs(records models.Records) (*dns.RecordBody, error) {
+	input := models.Records(records)
+	before := providers.BeginToNative(a.observer, "rcToRs", input)
 	if len(records) == 0 {
-		return nil, errors.New("no records to replace")
+		err := errors.New("no records to replace")
+		providers.EndToNative(a.observer, "rcToRs", before, input, nil, err)
+		return nil, err
 	}
 
+	ttlVal := int(records[0].TTL)
 	akaRecord := &dns.RecordBody{
 		Name:       records[0].NameFQDN,
 		RecordType: records[0].Type,
-		TTL:        int(records[0].TTL),
+		TTL:        &ttlVal,
 	}
 
 	for _, r := range records {
 		if r.Type == "AKAMAITLC" {
 			f := r.AsAKAMAITLC()
-			akaRecord.Target = append(akaRecord.Target, r.AnswerType+" "+f.Target)
+			akaRecord.Target = append(akaRecord.Target, f.AnswerType+" "+f.Target)
 		} else {
 			akaRecord.Target = append(akaRecord.Target, r.GetRDATA().String())
 		}
 	}
 
+	providers.EndToNative(a.observer, "rcToRs", before, input, akaRecord, nil)
 	return akaRecord, nil
 }
 
 // createRecordset creates a new AkamaiEdgeDNS recordset in the zone.
-func (a *edgeDNSProvider) createRecordset(ctx context.Context, records []*models.RecordConfig, zonename string) error {
+func (a *edgeDNSProvider) createRecordset(ctx context.Context, records models.Records, zonename string) error {
 	akaRecord, err := a.rcToRs(records)
 	if err != nil {
 		return err
@@ -251,12 +258,13 @@ func (a *edgeDNSProvider) createRecordset(ctx context.Context, records []*models
 }
 
 // replaceRecordset replaces an existing AkamaiEdgeDNS recordset in the zone.
-func (a *edgeDNSProvider) replaceRecordset(ctx context.Context, records []*models.RecordConfig, ttl uint32, zonename string) error {
+func (a *edgeDNSProvider) replaceRecordset(ctx context.Context, records models.Records, ttl uint32, zonename string) error {
 	akaRecord, err := a.rcToRs(records)
 	if err != nil {
 		return err
 	}
-	akaRecord.TTL = int(ttl)
+	ttlInt := int(ttl)
+	akaRecord.TTL = &ttlInt
 
 	err = a.client.UpdateRecord(ctx, dns.UpdateRecordRequest{
 		Zone:   zonename,
@@ -269,7 +277,7 @@ func (a *edgeDNSProvider) replaceRecordset(ctx context.Context, records []*model
 }
 
 // deleteRecordset deletes an existing AkamaiEdgeDNS recordset in the zone.
-func (a *edgeDNSProvider) deleteRecordset(ctx context.Context, records []*models.RecordConfig, zonename string) error {
+func (a *edgeDNSProvider) deleteRecordset(ctx context.Context, records models.Records, zonename string) error {
 	akaRecord, err := a.rcToRs(records)
 	if err != nil {
 		return err
@@ -304,7 +312,7 @@ func (a *edgeDNSProvider) deleteRecordset(ctx context.Context, records []*models
 */
 
 // getRecords returns all RecordConfig records in the zone.
-func (a *edgeDNSProvider) getRecords(ctx context.Context, dc *models.DomainConfig) ([]*models.RecordConfig, error) {
+func (a *edgeDNSProvider) getRecords(ctx context.Context, dc *models.DomainConfig) (models.Records, error) {
 	zonename := dc.Name
 	queryArgs := dns.RecordSetQueryArgs{ShowAll: true}
 
@@ -316,51 +324,66 @@ func (a *edgeDNSProvider) getRecords(ctx context.Context, dc *models.DomainConfi
 		return nil, fmt.Errorf("recordset list retrieval failed. error: %s", err.Error())
 	}
 
-	akaRecordsets := rsetResp.RecordSets     // what we have
-	var recordConfigs []*models.RecordConfig // what we return
+	akaRecordsets := rsetResp.RecordSets // what we have
+	var recordConfigs models.Records     // what we return
 
 	// For each AkamaiEdgeDNS recordset...
 	for _, akarecset := range akaRecordsets {
-		akaname := akarecset.Name
-		akatype := akarecset.Type
-		akattl := akarecset.TTL
-		label := dc.LabelFromFQDNNoDot(akaname)
+		before := providers.BeginToRC(a.observer, "nativeToRecords", akarecset)
+		recs, err := nativeToRecords(dc, akarecset)
+		providers.EndToRC(a.observer, "nativeToRecords", before, akarecset, recs, err)
+		if err != nil {
+			return nil, err
+		}
+		recordConfigs = append(recordConfigs, recs...)
+	}
 
-		// Don't report the existence of an SOA record (because DnsControl will try to delete the SOA record).
-		if akatype == "SOA" {
-			continue
+	return recordConfigs, nil
+}
+
+// nativeToRecords converts an AkamaiEdgeDNS recordset into 1 or more
+// RecordConfig structs. It returns nothing for an SOA recordset, whose existence
+// is not reported (because DnsControl will try to delete the SOA record).
+func nativeToRecords(dc *models.DomainConfig, akarecset dns.RecordSet) (models.Records, error) {
+	akaname := akarecset.Name
+	akatype := akarecset.Type
+	akattl := akarecset.TTL
+	label := dc.LabelFromFQDNNoDot(akaname)
+
+	if akatype == "SOA" {
+		return nil, nil
+	}
+
+	if akatype == "AKAMAITLC" {
+		// FIXME(tlim): Why join these then split them?  Would be better to
+		// check len(akarecset.Rdata) == 2 and assign parts := akarecset.Rdata.
+		// Is there every a case where len != 2?
+		combined := strings.Join(akarecset.Rdata, " ")
+		parts := strings.Fields(combined)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("AKAMAITLC rdata must contain 2 fields, got: %v", akarecset.Rdata)
+		}
+		rc, err := dc.NewRecordConfig(label, uint32(akattl), privatetypes.TypeAKAMAITLC, parts[0], parts[1])
+		if err != nil {
+			return nil, err
+		}
+		rc.Metadata = map[string]string{"akamai_raw_rdata": combined}
+		return models.Records{rc}, nil
+	}
+
+	var recordConfigs models.Records
+	for _, r := range akarecset.Rdata {
+		data := r
+		if akatype == "LOC" {
+			data = fixLocAltitude(r)
+		}
+		rc, err := dc.NewRecordConfigParse(label, uint32(akattl), akatype, data)
+		if err != nil {
+			return nil, err
 		}
 
-		// AKAMAITLC has 2 rdata entries that form 1 logical record: [answerType, target]
-		if akatype == "AKAMAITLC" {
-			combined := strings.Join(akarecset.Rdata, " ")
-			parts := strings.Fields(combined)
-			if len(parts) != 2 {
-				return nil, fmt.Errorf("AKAMAITLC rdata must contain 2 fields, got: %v", akarecset.Rdata)
-			}
-			rc, err := dc.NewRecordConfig(label, uint32(akattl), privatetypes.TypeAKAMAITLC, parts[0], parts[1])
-			if err != nil {
-				return nil, err
-			}
-			rc.Metadata = map[string]string{"akamai_raw_rdata": combined}
-			recordConfigs = append(recordConfigs, rc)
-			continue
-		}
-
-		// ... convert the recordset into 1 or more RecordConfig structs
-		for _, r := range akarecset.Rdata {
-			data := r
-			if akatype == "LOC" {
-				data = fixLocAltitude(r)
-			}
-			rc, err := dc.NewRecordConfigParse(label, uint32(akattl), akatype, data)
-			if err != nil {
-				return nil, err
-			}
-
-			rc.Metadata = map[string]string{"akamai_raw_rdata": r}
-			recordConfigs = append(recordConfigs, rc)
-		}
+		rc.Metadata = map[string]string{"akamai_raw_rdata": r}
+		recordConfigs = append(recordConfigs, rc)
 	}
 
 	return recordConfigs, nil

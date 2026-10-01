@@ -106,13 +106,13 @@ func init() {
 			},
 			{
 				Key:    "totp-key",
-				Label:  "TOTP shared secret (optional)",
+				Label:  "TOTP shared secret",
 				Help:   "Shared TOTP secret used to generate a valid TOTP code. Leave blank if you do not use TOTP.",
 				Secret: true,
 			},
 			{
 				Key:     "session-file-path",
-				Label:   "Session file path (optional)",
+				Label:   "Session file path",
 				Help:    "Path to a directory where the .hedns-session file is stored to reuse the authenticated session. Leave blank to log in each run.",
 				Default: ".",
 			},
@@ -423,7 +423,7 @@ func (c *hednsProvider) setDDNSKeyForNewRecord(zoneID uint64, _ string, record *
 func (c *hednsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Records, error) {
 	domain := dc.Name
 
-	var zoneRecords []*models.RecordConfig
+	var zoneRecords models.Records
 
 	// Get Domain ID
 	domainID, err := c.zoneCache.GetZone(domain)

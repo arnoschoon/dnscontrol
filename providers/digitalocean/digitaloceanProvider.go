@@ -47,7 +47,7 @@ var defaultNameServerNames = []string{
 const perPageSize = 100
 
 // NewDo creates a DO-specific DNS provider.
-func NewDo(m map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
+func NewDo(m map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
 	if m["token"] == "" {
 		return nil, errors.New("no DigitalOcean token provided")
 	}
@@ -200,7 +200,7 @@ func (api *digitaloceanProvider) GetZoneRecords(dc *models.DomainConfig) (models
 		return nil, err
 	}
 
-	var existingRecords []*models.RecordConfig
+	var existingRecords models.Records
 	for i := range records {
 		if records[i].Type == "SOA" {
 			continue
@@ -391,7 +391,7 @@ func toReq(rc *models.RecordConfig) *godo.DomainRecordEditRequest {
 }
 
 // backoff is the amount of time to sleep if a 429 or 504 is received.
-// It is doubled after each use.
+// It is increased by 1.5x after each use.
 var backoff = time.Second * 5
 
 const maxBackoff = time.Minute * 3

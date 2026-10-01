@@ -108,7 +108,7 @@ func init() {
 			},
 			{
 				Key:   "BaseURL",
-				Label: "Base URL (optional)",
+				Label: "Base URL",
 				Help:  "Override the API base URL (for example to use the sandbox). Leave blank to use the production URL.",
 			},
 		},
@@ -367,14 +367,12 @@ func (n *namecheapProvider) generateRecords(dc *models.DomainConfig) error {
 			}
 
 			switch rtype := rc.TypeNum; rtype {
-			case dnsv2.TypeCAA:
-				rec.Address = rc.GetRDATA().String()
 			case dnsv2.TypeMX:
 				f := rc.AsMX()
 				rec.MXPref = int(f.Preference)
 				rec.Address = f.Mx
 			default:
-				rec.Address = rc.GetTargetField()
+				rec.Address = rc.GetRDATA().String()
 			}
 
 			recs = append(recs, rec)

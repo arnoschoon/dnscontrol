@@ -44,11 +44,9 @@ func (rr *AKAMAITLC) Data() dnsv2.RDATA {
 }
 func (rr *AKAMAITLC) Clone() dnsv2.RR {
 	return &AKAMAITLC{
-		Hdr: rr.Hdr,
-		AKAMAITLC: privatetypesrdata.AKAMAITLC{
-			AnswerType: rr.AnswerType,
-			Target:     rr.Target,
-		}}
+		Hdr:        rr.Hdr,
+		AnswerType: rr.AnswerType,
+		Target:     rr.Target}
 }
 func (rr *AKAMAITLC) String() string {
 	return (rr.Header().Name + "\t" +
@@ -63,7 +61,11 @@ func (rr *AKAMAITLC) Parse(tokens []string, s string) error {
 		return fmt.Errorf("AKAMAITLC requires exactly 2 arguments, got %d: %v", len(args), args)
 	}
 	rr.AnswerType = mustbe.RawString(args[0])
-	rr.Target = mustbe.TargetHost("", nrc.Flags{}, args[1])
+	targetHost1, err := mustbe.TargetHost("", nrc.Flags{}, args[1])
+	if err != nil {
+		return err
+	}
+	rr.Target = targetHost1
 	return nil
 }
 

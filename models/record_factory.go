@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	"log"
 	"slices"
 	"strings"
 
@@ -19,9 +18,7 @@ import (
 // It may seem odd that this is a method of DomainConfig but it makes sense if
 // you consider that a RecordConfig lives in the context of its DomainConfig.
 // For example, the need to shorten a FQDN requires knowing the domain's name,
-// which is stored in a DomainConfig. If you need to create a RecordConfig
-// outside of a DomainConfig, consider using models.MakeTestRC() or
-// models.MakeTestRCParse() (both in record_helpers_test.go).
+// which is stored in a DomainConfig.
 // Behavior can be modified by sending an optional nrc.Flag struct as the last arg.
 func (dc *DomainConfig) NewRecordConfig(name string, ttl uint32, typeAny any, args ...any) (*RecordConfig, error) {
 	mustbe.ValidArgs(args)
@@ -66,7 +63,7 @@ func (dc *DomainConfig) NewRecordConfig(name string, ttl uint32, typeAny any, ar
 
 // NewRecordConfigParse is like NewRecordConfig but the fields of the record
 // come from parsing data which is assumed to be in RFC1038 Zonefile format.
-// Behavior can be modified by sending an optional rfc.Flag struct.
+// Behavior can be modified by sending an optional nrc.Flag struct.
 func (dc *DomainConfig) NewRecordConfigParse(name string, ttl uint32, typeAny any, data string, rcflag ...nrc.Flags) (*RecordConfig, error) {
 	typeNum, err := anyToTypeNum(typeAny)
 	if err != nil {
@@ -99,39 +96,38 @@ func (dc *DomainConfig) NewRecordConfigParse(name string, ttl uint32, typeAny an
 		return dc.NewRecordConfig(name, ttl, typeNum, data, isEnabled)
 	}
 
-	rd, err := MyNewData(typeNum, data, origin)
+	rd, err := myNewData(typeNum, data, origin)
 	if err != nil {
 		return nil, err
 	}
 	return newRecordConfigHelper(dc.Name, name, ttl, typeNum, rd, nil)
 }
 
+func myNewData(typeNum uint16, contents string, origin string) (dnsv2.RDATA, error) {
+	switch typeNum {
+
+	case dnsv2.TypeTXT:
+		// NewData expects quotes around TXT contents.
+		if len(contents) > 0 && (contents[0] != '"' && contents[len(contents)-1] != '"') {
+			contents = `"` + contents + `"`
+		}
+
+	}
+
+	rd2, err := dnsv2.NewData(typeNum, contents, origin+".")
+	if err != nil {
+		return nil, fmt.Errorf("NewData(%d, %q, %q) failed: %w", typeNum, contents, origin+".", err)
+	}
+	// We do not need to call normalizeRDATA here because every caller to
+	// myNewData eventually passes the result to newRecordConfigHelper,
+	// which calls SetRDATA, which calls normalizeRDATA.
+	return rd2, nil
+}
+
 // NewRecordConfigForRRv2toRC is like NewRecordConfig but takes an RDATA. It
 // should only be used by RRv2toRC. It is not intended for general use.
 func (dc *DomainConfig) NewRecordConfigForRRv2toRC(name string, ttl uint32, typeNum uint16, rd dnsv2.RDATA) (*RecordConfig, error) {
 	return newRecordConfigHelper(dc.Name, name, ttl, typeNum, rd, nil)
-}
-
-// NewRecordConfigForRRtoRC is only for use by dnsrr.go. Do not use this. The signature may change at any time.
-func NewRecordConfigForRRtoRC(origin, name string, ttl uint32, typeNum uint16, args ...any) (*RecordConfig, error) {
-	mustbe.ValidArgs(args)
-
-	// Make sure label is a shortname.
-	name = strings.ToLower(name)
-	if before, found := strings.CutSuffix(name, "."+origin+"."); found {
-		name = before
-	}
-	if name == origin+"." {
-		name = "@"
-	}
-
-	isEnabled := nrc.Flags{}
-
-	rd, err := privatetypes.TypeToMakeRDATA[typeNum](origin, nil, isEnabled, args...)
-	if err != nil {
-		log.Fatalf("NewRecordConfigForRRtoRC: Failed to create RDATA for type %s: %v", dnsutilv2.TypeToString(typeNum), err)
-	}
-	return newRecordConfigHelper(origin, name, ttl, typeNum, rd, nil)
 }
 
 // newRecordConfigFromDnsconfigjs is only for use by models.ImportRawRecords().
@@ -151,12 +147,18 @@ func (dc *DomainConfig) newRecordConfigFromDnsconfigjs(name string, ttl uint32, 
 	if subdomain != "" {
 		targetOrigin = subdomain + "." + dc.Name
 	}
-	rd, err := privatetypes.TypeToMakeRDATA[typeNum](targetOrigin, metadata, nrc.Flags{}, args...)
+
+	label, err := dc.LabelFromDnsconfigjs(name, subdomain)
 	if err != nil {
-		fmt.Printf("NewRecordConfigFromDnsconfigjs: Failed to create RDATA for type %s: %v\n", dnsutilv2.TypeToString(typeNum), err)
-		log.Fatalf("NewRecordConfigFromDnsconfigjs: Failed to create RDATA for type %s: %v", dnsutilv2.TypeToString(typeNum), err)
+		return nil, err
 	}
-	return newRecordConfigHelper(dc.Name, name, ttl, typeNum, rd, metadata)
+
+	rd, err := privatetypes.TypeToMakeRDATA[typeNum](targetOrigin, metadata, nrc.Flags{EnforceOneDotPolicy: true}, args...)
+	if err != nil {
+		return nil, fmt.Errorf("dnsconfigjs: failed to create RDATA for type %s: %w", dnsutilv2.TypeToString(typeNum), err)
+	}
+
+	return newRecordConfigHelper(dc.Name, label, ttl, typeNum, rd, metadata)
 }
 
 // newRecordConfigHelper is a helper.  if rd != nil, args is ignored.

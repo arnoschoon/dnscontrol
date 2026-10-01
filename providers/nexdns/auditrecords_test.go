@@ -43,7 +43,7 @@ func TestAuditRecords(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := AuditRecords([]*models.RecordConfig{tt.record})
+			errs := AuditRecords(models.Records{tt.record})
 			if len(errs) != tt.wantCount {
 				t.Errorf("AuditRecords() returned %d errors, want %d: %v", len(errs), tt.wantCount, errs)
 			}
@@ -54,8 +54,8 @@ func TestAuditRecords(t *testing.T) {
 func auditTXT(t *testing.T, target string) *models.RecordConfig {
 	t.Helper()
 
-	rc := &models.RecordConfig{Type: "TXT"}
-	rc.SetLabel("@", testOrigin)
+	dc := models.MustNewDomainConfig(testOrigin)
+	rc := dc.MustNewRecordConfig("@", 0, dnsv2.TypeTXT, "my text")
 	if err := rc.SetTargetTXT(target); err != nil {
 		t.Fatalf("SetTargetTXT() error = %v", err)
 	}

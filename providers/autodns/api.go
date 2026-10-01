@@ -120,7 +120,7 @@ func (api *autoDNSProvider) request(method string, requestPath string, data any)
 		time.Sleep(sleepDuration)
 	}
 
-	return nil, errors.New("Failed to fetch" + requestURL.Path + " after 4 retries")
+	return nil, fmt.Errorf("failed to fetch %s after 4 retries", requestURL.Path)
 }
 
 func (api *autoDNSProvider) findZoneSystemNameServer(domain string) (*models.Nameserver, error) {
@@ -283,6 +283,13 @@ func (api *autoDNSProvider) updateZone(domain string, resourceRecords []*Resourc
 	zone.SystemNameServer = systemNameServer.Name
 
 	zone.IncludeWwwForMain = false
+
+	// "main" is a legacy AutoDNS field that we surface as a synthetic apex A
+	// record on read but never write. Carrying it back unchanged makes any
+	// apex A correction impossible: DNSControl deletes the record from
+	// resourceRecords, the PUT restores it from "main", and the zone drifts
+	// forever. Clear it so the apex lives solely in resourceRecords.
+	zone.MainRecord = nil
 
 	zone.Soa.TTL = zoneTTL
 

@@ -325,6 +325,21 @@ func makeLineRecord(domain, target string, metadata map[string]string) *models.R
 	return rc
 }
 
+// The validation identity must read nothing but the record it is given. A
+// record without line metadata answers on the default line, and weight stays
+// out because the service keys records without it.
+func TestRecordIdentityReadsOnlyTheRecord(t *testing.T) {
+	assert.Equal(t, "line_id=0", recordIdentity(makeLineRecord("example.com", "1.2.3.4", nil)))
+	assert.Equal(t, "line_id=10=1", recordIdentity(makeLineRecord("example.com", "1.2.3.4",
+		map[string]string{metaRecordLineID: "10=1"})))
+	assert.Equal(t, "line=电信", recordIdentity(makeLineRecord("example.com", "1.2.3.4",
+		map[string]string{metaRecordLine: "电信"})))
+	assert.Equal(t, "line_id=10=1", recordIdentity(makeLineRecord("example.com", "1.2.3.4",
+		map[string]string{metaRecordLineID: "10=1", metaRecordWeight: "10"})))
+	assert.Equal(t, "line_id=10=1", recordIdentity(makeLineRecord("example.com", "1.2.3.4",
+		map[string]string{metaRecordLineID: "10=1", metaRecordWeight: "20"})))
+}
+
 func TestMinTTLForGrade(t *testing.T) {
 	packages := []*dnspod.PackageDetailItem{
 		{
@@ -344,6 +359,20 @@ func TestMinTTLForGrade(t *testing.T) {
 	assert.Equal(t, uint32(1), minTTLForGrade("DP_Plus", packages))
 	assert.Equal(t, defaultTTL, minTTLForGrade("DP_MissingTTL", packages))
 	assert.Equal(t, defaultTTL, minTTLForGrade("DP_Unknown", packages))
+}
+
+// DescribeDomain and DescribePackageDetail disagree on the case of the same
+// plan name, so the lookup must not compare the two strings exactly.
+func TestMinTTLForGradeIgnoresGradeCase(t *testing.T) {
+	packages := []*dnspod.PackageDetailItem{
+		{
+			DomainGrade: new("DP_Plus"),
+			MinTtl:      new(uint64(60)),
+		},
+	}
+
+	assert.Equal(t, uint32(60), minTTLForGrade("DP_PLUS", packages))
+	assert.Equal(t, uint32(60), minTTLForGrade("dp_plus", packages))
 }
 
 func TestCredsMetadata(t *testing.T) {

@@ -108,9 +108,10 @@ func init() {
 				Required: true,
 			},
 			{
-				Key:   "sandbox",
-				Label: "Use sandbox (optional)",
-				Help:  "Set to 1 to use the INWX sandbox API (ote.inwx.com) instead of production. Leave blank for production.",
+				Key:          "sandbox",
+				Label:        "Use the INWX sandbox API (ote.inwx.com) instead of production?",
+				Help:         "Answer no for normal use. The sandbox is the INWX OT&E test environment.",
+				ConfirmValue: "1",
 			},
 		},
 	})
@@ -194,7 +195,7 @@ func newInwxReg(m map[string]string) (providers.Registrar, error) {
 }
 
 // new InwxDsp is called to initialize the INWX domain service provider.
-func newInwxDsp(m map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
+func newInwxDsp(m map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
 	return newInwx(m)
 }
 
@@ -256,21 +257,21 @@ func makeNameserverRecordRequest(domain string, rec *models.RecordConfig) *goinw
 	return req
 }
 
-// createRecord is used by GetDomainCorrections to create a new record.
+// createRecord is used by GetZoneRecordsCorrections to create a new record.
 func (api *inwxAPI) createRecord(domain string, rec *models.RecordConfig) error {
 	req := makeNameserverRecordRequest(domain, rec)
 	_, err := api.client.Nameservers.CreateRecord(req)
 	return err
 }
 
-// updateRecord is used by GetDomainCorrections to update an existing record.
+// updateRecord is used by GetZoneRecordsCorrections to update an existing record.
 func (api *inwxAPI) updateRecord(RecordID string, rec *models.RecordConfig) error {
 	req := makeNameserverRecordRequest("", rec)
 	err := api.client.Nameservers.UpdateRecord(RecordID, req)
 	return err
 }
 
-// deleteRecord is used by GetDomainCorrections to delete a record.
+// deleteRecord is used by GetZoneRecordsCorrections to delete a record.
 func (api *inwxAPI) deleteRecord(RecordID string) error {
 	return api.client.Nameservers.DeleteRecord(RecordID)
 }

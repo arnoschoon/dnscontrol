@@ -37,6 +37,8 @@ var globalDC *models.DomainConfig
 // Global variable to hold the current DomainConfig     for use in FromRaw calls.
 var globalDCN *domaintags.DomainNameVarieties
 
+var globalCfg map[string]string
+
 // Default TTL used in integration tests.
 var defaultTTL = uint32(300)
 
@@ -180,12 +182,22 @@ func makeChanges(t *testing.T, prv providers.DNSServiceProvider, dc *models.Doma
 			maps.Copy(dom.Metadata, domainMeta)
 		}
 
+		// testRecords holds only the records this test case contributes. dom
+		// additionally contains the zone's delegation NS records, which
+		// getDomainConfigWithNameservers() synthesized via
+		// nameservers.AddNSRecords(). Those must not be audited: in production
+		// AuditRecords() runs in pkg/normalize on the user's records, long
+		// before generateDelegationCorrections() synthesizes the apex NS
+		// records. Auditing them here makes a provider that rejects apex NS
+		// records (or NS records generally) skip every test in the suite.
+		testRecords := make(models.Records, 0, len(tst.Records))
 		for _, r := range tst.Records {
 			rc := models.RecordConfig(*r)
 
 			replaceIntegrationTargetTokens(&rc, origConfig["SubscriptionID"], origConfig["ResourceGroup"])
 
 			dom.Records = append(dom.Records, &rc)
+			testRecords = append(testRecords, &rc)
 		}
 		dom.Unmanaged = tst.Unmanaged
 		dom.UnmanagedUnsafe = tst.UnmanagedUnsafe
@@ -201,10 +213,11 @@ func makeChanges(t *testing.T, prv providers.DNSServiceProvider, dc *models.Doma
 			RTypePattern:  "A",
 			TargetPattern: "",
 		})
-		models.PostProcessRecords(dom.Records)
 		dom2, _ := dom.Copy()
 
-		if err := providers.AuditRecords(*providerFlag, dom.Records); err != nil {
+		// testRecords shares its pointers with dom.Records, so the records
+		// audited here are the same objects this test will push.
+		if err := providers.AuditRecords(*providerFlag, testRecords); err != nil {
 			t.Skipf("***SKIPPED(PROVIDER DOES NOT SUPPORT '%s' ::%q)", err, desc)
 			return
 		}
@@ -215,7 +228,7 @@ func makeChanges(t *testing.T, prv providers.DNSServiceProvider, dc *models.Doma
 
 		_, corrections, actualChangeCount, err := zonerecs.CorrectZoneRecords(prv, dom)
 		if err != nil {
-			t.Fatal(fmt.Errorf("runTests: %w", err))
+			t.Fatal(fmt.Errorf("runTests: CZR %w", err))
 		}
 		if tst.Changeless {
 			if actualChangeCount != 0 {
@@ -262,7 +275,11 @@ func makeChanges(t *testing.T, prv providers.DNSServiceProvider, dc *models.Doma
 }
 
 func replaceIntegrationTargetTokens(rc *models.RecordConfig, subscriptionID, resourceGroup string) {
-	originalTarget := rc.GetTargetField()
+	if rc.Type != "AZURE_ALIAS" {
+		return
+	}
+
+	originalTarget := rc.AsAZUREALIAS().Target
 	target := strings.NewReplacer(
 		"**subscription-id**", subscriptionID,
 		"**resource-group**", strings.ToLower(resourceGroup),
@@ -278,13 +295,13 @@ func replaceIntegrationTargetTokens(rc *models.RecordConfig, subscriptionID, res
 		return
 	}
 
-	// _ = rc.SetTarget(target)
 	rc.ClearRDATA()
 }
 
 func runTests(t *testing.T, prv providers.DNSServiceProvider, domainName string, origConfig map[string]string) {
 	dc := getDomainConfigWithNameservers(t, prv, domainName)
 	globalDC = dc
+	globalCfg = origConfig
 
 	testGroups := makeTests()
 
@@ -353,7 +370,7 @@ type TestGroup struct {
 
 type TestCase struct {
 	Desc            string
-	Records         []*models.RecordConfig
+	Records         models.Records
 	Unmanaged       []*models.UnmanagedConfig
 	UnmanagedUnsafe bool // DISABLE_IGNORE_SAFETY_CHECK
 	Changeless      bool // set to true if any changes would be an error
@@ -548,11 +565,13 @@ func ignoreTarget(targetSpec string, typeSpec string) *models.RecordConfig {
 }
 
 func ignore(labelSpec string, typeSpec string, targetSpec string) *models.RecordConfig {
-	r := &models.RecordConfig{
-		Type:     "IGNORE",
-		Metadata: map[string]string{},
-	}
+	// There is no "ignore" record.  IGNORE is a macro in helpers.js that records info
+	// into the DomainConfig.  Since we want to be able to test it, we stash the info
+	// in Metadata then later we pluck it out and put it on the domain in test.
+	r := &models.RecordConfig{Type: "IGNORE", Metadata: map[string]string{}}
 
+	// We stash the *Spec values in Metadata temporarily. Later in tc() we
+	// pluck them out and install them in the DomainConfig.
 	r.Metadata["ignore_LabelPattern"] = labelSpec
 	r.Metadata["ignore_RTypePattern"] = typeSpec
 	r.Metadata["ignore_TargetPattern"] = targetSpec
@@ -567,7 +586,7 @@ func loc(name string, d1 uint8, m1 uint8, s1 float32, ns string,
 	return r
 }
 
-func manyA(namePattern, target string, n int) []*models.RecordConfig {
+func manyA(namePattern, target string, n int) models.Records {
 	recs := models.Records{}
 	for i := range n {
 		r, err := globalDC.NewRecordConfig(fmt.Sprintf(namePattern, i), defaultTTL, dnsv2.TypeA, target)

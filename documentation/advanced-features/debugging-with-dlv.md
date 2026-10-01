@@ -1,22 +1,27 @@
-## Debugger
+# Debugging Tips
 
-### Debug a particular function:
+- [Debug a particular function](#debug-a-particular-function)
+- [Debug an integration tests](#debug-an-integration-tests)
+- [Debug the `dnscontrol` command](#debug-the-dnscontrol-command)
+- [Debug `helpers.js`](#debug-helpers.js)
+
+## Debug a particular function
 
 ```shell
-dlv test github.com/DNSControl/dnscontrol/v4/pkg/diff2 -- -test.run Test_analyzeByRecordSet
+dlv test github.com/DNSControl/dnscontrol/v5/pkg/diff2 -- -test.run Test_analyzeByRecordSet
                                                 ^^^^^^^^^
                                                 Assumes you are in the pkg/diff2 directory.
 ```
 
-### Debug an integration tests:
+## Debug an integration tests
 
 ```shell
-dlv test github.com/DNSControl/dnscontrol/v4/integrationTest -- -test.v -test.run ^TestDNSProviders -verbose -profile BIND -start 7 -end 7
+dlv test github.com/DNSControl/dnscontrol/v5/integrationTest -- -test.v -test.run ^TestDNSProviders -verbose -profile BIND -start 7 -end 7
 ```
 
 If you are using VSCode, the equivalent configuration is:
 
-```
+```json
     "configurations": [
 
         {
@@ -48,7 +53,7 @@ If you are using VSCode, the equivalent configuration is:
 
 ```
 
-### Debug the `dnscontrol` command
+## Debug the `dnscontrol` command
 
 ```shell
 dlv debug --wd /path/to/config/dir -- preview --domains examples.com
@@ -56,7 +61,7 @@ dlv debug --wd /path/to/config/dir -- preview --domains examples.com
 
 VSCode equivalent configuration is:
 
-```
+```json
     "configurations": [
 
         {
@@ -76,3 +81,30 @@ VSCode equivalent configuration is:
     ]
 ```
 
+## Debug `helpers.js`
+
+Develop a function:
+
+```shell
+node -e "
+function IP(dot) {
+    var d = dot.split('.');
+    return ((((((+d[0]) * 256) + (+d[1])) * 256) + (+d[2])) * 256) + (+d[3]);
+}
+console.log(IP('135.181.247.240'));
+"
+```
+
+Debug a function within `helpers.js` (run from the root of the repository):
+
+```shell
+node -e "
+const fs = require('fs');
+const vm = require('vm');
+const code = fs.readFileSync('pkg/js/helpers.js', 'utf8');
+const sandbox = {};
+vm.createContext(sandbox);
+vm.runInContext(code, sandbox);
+console.log(vm.runInContext(\" IP('135.181.247.240') \", sandbox));
+"
+```

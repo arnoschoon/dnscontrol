@@ -9,7 +9,7 @@ import (
 
 // Keep these in alphabetical order.
 
-// CaaFlagIsNonZero identifies CAA records where tag is no zero.
+// CaaFlagIsNonZero identifies CAA records where flag is no zero.
 func CaaFlagIsNonZero(rc *models.RecordConfig) error {
 	if rc.AsCAA().Flag != 0 {
 		return errors.New("caa flag is non-zero")
@@ -42,11 +42,3 @@ func CaaHasEmptyTarget(rc *models.RecordConfig) error {
 	}
 	return nil
 }
-
-// // CaaTargetHasSemicolon identifies CAA records that contain semicolons.
-// func CaaTargetHasSemicolon(rc *models.RecordConfig) error {
-// 	if strings.Contains(rc.GetTargetField(), ";") {
-// 		return fmt.Errorf("caa target contains semicolon")
-// 	}
-// 	return nil
-// }

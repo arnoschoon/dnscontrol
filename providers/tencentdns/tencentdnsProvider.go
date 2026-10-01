@@ -2,6 +2,7 @@ package tencentdns
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -22,7 +23,7 @@ const (
 )
 
 var features = providers.DocumentationNotes{
-	providers.CanUseAlias:            providers.Can("Enable CNAME flattening for ALIAS to work at the apex. See https://docs.dnspod.com/dns/cname-flattening/"),
+	providers.CanUseAlias:            providers.Cannot(),
 	providers.CanGetZones:            providers.Can(),
 	providers.CanUseCAA:              providers.Can(),
 	providers.CanUsePTR:              providers.Cannot(),
@@ -36,8 +37,9 @@ func init() {
 	const providerName = "TENCENTDNS"
 	const providerMaintainer = "@cylonchau"
 	fns := providers.DspFuncs{
-		Initializer:   newTencentDNSDsp,
-		RecordAuditor: AuditRecords,
+		Initializer:    newTencentDNSDsp,
+		RecordAuditor:  AuditRecords,
+		RecordIdentity: recordIdentity,
 	}
 	providers.RegisterDomainServiceProviderType(providerName, fns, features)
 	providers.RegisterRegistrarType(providerName, newTencentDNSReg)
@@ -84,7 +86,7 @@ type tencentdnsProvider struct {
 	client *tencentCloudClient
 }
 
-func newTencentDNSDsp(config map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
+func newTencentDNSDsp(config map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
 	return newTencentDNS(config)
 }
 
@@ -96,7 +98,7 @@ func newTencentDNS(config map[string]string) (*tencentdnsProvider, error) {
 	secretID := config["secret_id"]
 	secretKey := config["secret_key"]
 	if secretID == "" || secretKey == "" {
-		return nil, fmt.Errorf("missing tencent cloud credentials (secret_id, secret_key)")
+		return nil, errors.New("missing tencent cloud credentials (secret_id, secret_key)")
 	}
 
 	region := config["region"]
@@ -239,6 +241,27 @@ func recordMetadataComparable(existingRecords models.Records) diff2.ComparableFu
 		}
 		return lineComparable + " weight=" + weight
 	}
+}
+
+// recordIdentity returns the identity text used by validation-time duplicate
+// detection. Validation runs before the provider has read the zone, so this
+// reads nothing but the record itself: the line ID when set, otherwise the line
+// name. Weight stays out, because it is not part of the key the service uses.
+func recordIdentity(rc *models.RecordConfig) string {
+	if rc.Metadata != nil {
+		if lineID := rc.Metadata[metaRecordLineID]; lineID != "" {
+			return "line_id=" + lineID
+		}
+		if line := rc.Metadata[metaRecordLine]; line != "" {
+			// The default line has one name and one ID.
+			if line == defaultRecordLine {
+				return "line_id=" + defaultRecordLineID
+			}
+			return "line=" + line
+		}
+	}
+	// A record without line metadata answers on the default line.
+	return "line_id=" + defaultRecordLineID
 }
 
 func (p *tencentdnsProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, existingRecords models.Records) ([]*models.Correction, int, error) {

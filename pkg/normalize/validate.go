@@ -3,7 +3,6 @@ package normalize
 import (
 	"errors"
 	"fmt"
-	"net/netip"
 	"slices"
 	"sort"
 	"strconv"
@@ -17,28 +16,9 @@ import (
 	"github.com/DNSControl/dnscontrol/v5/pkg/transform"
 )
 
-// Returns false if target does not validate.
-func checkIPv4(label string) error {
-	if addr, err := netip.ParseAddr(label); err != nil || !addr.Is4() {
-		return fmt.Errorf("WARNING: target (%v) is not an IPv4 address", label)
-	}
-	return nil
-}
-
-// Returns false if target does not validate.
-func checkIPv6(label string) error {
-	if addr, err := netip.ParseAddr(label); err != nil || !addr.Is6() {
-		return fmt.Errorf("WARNING: target (%v) is not an IPv6 address", label)
-	}
-	return nil
-}
-
 // make sure target is valid reference for cnames, mx, etc.
 func checkTarget(target string) error {
-	// In V5, the target shouldn't be "@". It should be $origin+"."
-	// if target == "@" {
-	// 	return nil
-	// }
+	// The target shouldn't be "@". It should be $origin+"."
 	if target == "" {
 		return errors.New("empty target (\"\"). Did you mean \"@\" instead?")
 	}
@@ -48,14 +28,11 @@ func checkTarget(target string) error {
 	if !strings.HasSuffix(target, ".in-addr.arpa.") && strings.Contains(target, "/") {
 		return fmt.Errorf("target (%v) includes invalid char", target)
 	}
-	// If it contains a ".", it must end in a ".".
-	if strings.ContainsRune(target, '.') && target[len(target)-1] != '.' {
-		return fmt.Errorf("target (%v) must end with a (.) [https://docs.dnscontrol.org/language-reference/why-the-dot]", target)
-	}
 	return nil
 }
 
-// validateRecordTypes list of valid rec.Type values. Returns true if this is a real DNS record type, false means it is a pseudo-type used internally.
+// validateRecordTypes returns an error if this type is incompatible with the provider.
+// FIXME(tlim): Is this needed any more?
 func validateRecordTypes(rec *models.RecordConfig, domain string, pTypes []string) error {
 	switch rec.Type {
 	// RCv3 records do not need this validation step.
@@ -158,6 +135,8 @@ func checkLabel(label string, rType string, domain string, meta map[string]strin
 	return nil
 }
 
+// checkSoa checks the elements of an SOA.
+// FIXME(tlim): Move this to MakeSOA(). (Note to self: API-downloaded items aren't run through validate).
 func checkSoa(expire uint32, minttl uint32, refresh uint32, retry uint32, mbox string) error {
 	if expire <= 0 {
 		return errors.New("SOA Expire must be > 0")
@@ -180,7 +159,8 @@ func checkSoa(expire uint32, minttl uint32, refresh uint32, retry uint32, mbox s
 	return nil
 }
 
-// checkTargets returns true if rec.Target is valid for the rec.Type.
+// checkTargets returns zero or more errors when problems are found.
+// FYI: Many of these checks are obsolete since Make*() does the same thing. We'll be removing the duplicate checks over time.
 func checkTargets(rec *models.RecordConfig, domain string) (errs []error) {
 	switch rec.Type {
 	case "CLOUDFLAREAPI_SINGLE_REDIRECT", "RP", "DS":
@@ -188,7 +168,6 @@ func checkTargets(rec *models.RecordConfig, domain string) (errs []error) {
 	}
 
 	label := rec.GetLabel()
-	// target := rec.GetTargetField()
 	check := func(e error) {
 		if e != nil {
 			err := fmt.Errorf("%s: %s %s: %s", rec.FilePos, rec.Type, rec.GetLabelFQDN(), e.Error())
@@ -199,16 +178,19 @@ func checkTargets(rec *models.RecordConfig, domain string) (errs []error) {
 		}
 	}
 	switch rec.Type { // #rtype_variations
+
+	// No longer needed
 	case "A":
-		check(checkIPv4(rec.AsA().String()))
 	case "AAAA":
-		check(checkIPv6(rec.AsAAAA().String()))
+	case "LOC":
+	case "CAA", "DHCID", "DNSKEY", "DS", "HTTPS", "IMPORT_TRANSFORM", "OPENPGPKEY", "SMIMEA", "SSHFP", "SVCB", "TLSA", "TXT":
+
 	case "ALIAS":
 		check(checkTarget(rec.AsALIAS().Target))
 	case "CNAME":
 		check(checkTarget(rec.AsCNAME().Target))
 		if label == "@" {
-			check(errors.New("cannot create CNAME record for bare domain"))
+			check(errors.New("cannot create CNAME record for bare domain. Use ALIAS"))
 		}
 		labelFQDN := nameutil.ToFqdnNoDot(label, domain)
 		targetFQDN := nameutil.ToFqdnNoDot(rec.AsCNAME().Target, domain)
@@ -217,7 +199,6 @@ func checkTargets(rec *models.RecordConfig, domain string) (errs []error) {
 		}
 	case "DNAME":
 		check(checkTarget(rec.AsDNAME().Target))
-	case "LOC":
 	case "MX":
 		check(checkTarget(rec.AsMX().Mx))
 	case "NAPTR":
@@ -251,7 +232,6 @@ func checkTargets(rec *models.RecordConfig, domain string) (errs []error) {
 		if _, ok := dnsv2.StringToType[upper]; !ok {
 			check(fmt.Errorf("LUA emitted rtype (%s) is not a valid DNS type", f.LuaType))
 		}
-	case "CAA", "DHCID", "DNSKEY", "DS", "HTTPS", "IMPORT_TRANSFORM", "OPENPGPKEY", "SMIMEA", "SSHFP", "SVCB", "TLSA", "TXT":
 	default:
 		if rec.Metadata["orig_custom_type"] != "" {
 			// it is a valid custom type. We perform no validation on target
@@ -413,25 +393,24 @@ func ValidateAndNormalizeConfig(config *models.DNSConfig) (errs []error) {
 		}
 
 		// Normalize Records.
-		models.PostProcessRecords(domain.Records)
 		for _, rec := range domain.Records {
 			if rec.TTL == 0 {
 				rec.TTL = models.DefaultTTL
 			}
 
 			// Canonicalize Label:
-			if rec.GetLabel() == (domain.Name + ".") {
-				// If label == ${domain}DOT, change to "@"
-				rec.SetLabel("@", domain.Name)
-			} else if lab, suf := rec.GetLabel(), "."+domain.Name+"."; strings.HasSuffix(lab, suf) {
-				// If label ends with DOT${domain}DOT, strip it to a short name.
-				rec.SetLabel(lab[:len(lab)-len(suf)], domain.Name)
-			}
+			//if rec.GetLabel() == (domain.Name + ".") {
+			//	// If label == ${domain}DOT, change to "@"
+			//	rec.SetLabel("@", domain.Name)
+			//} else if lab, suf := rec.GetLabel(), "."+domain.Name+"."; strings.HasSuffix(lab, suf) {
+			//	// If label ends with DOT${domain}DOT, strip it to a short name.
+			//	rec.SetLabel(lab[:len(lab)-len(suf)], domain.Name)
+			//}
 			// If label ends with dot, add to the list of errors.
-			if strings.HasSuffix(rec.GetLabel(), ".") {
-				errs = append(errs, fmt.Errorf("label %q does not match D(%q)", rec.GetLabel(), domain.Name))
-				return errs // Exit early.
-			}
+			//if strings.HasSuffix(rec.GetLabel(), ".") {
+			//	errs = append(errs, fmt.Errorf("label %q does not match D(%q)", rec.GetLabel(), domain.Name))
+			//	return errs // Exit early.
+			//}
 
 			// in-addr.arpa magic
 			if strings.HasSuffix(domain.Name, ".in-addr.arpa") || strings.HasSuffix(domain.Name, ".ip6.arpa") {
@@ -537,19 +516,11 @@ func ValidateAndNormalizeConfig(config *models.DNSConfig) (errs []error) {
 	for _, domain := range config.Domains {
 		for _, rec := range domain.Records {
 			if rec.Type == "IMPORT_TRANSFORM" {
-				suffixstrip := rec.Metadata["transform_suffixstrip"]
-				transformTable := rec.Metadata["transform_table"]
-				ttl := rec.TTL
-				var targetDomain string
-				if rec.GetRDATA() != nil {
-					rd := rec.AsIMPORTTRANSFORM()
-					transformTable = rd.TransformTable
-					ttl = uint32(rd.TTL)
-					suffixstrip = rd.SuffixStrip
-					targetDomain = rd.TargetDomain
-				} else {
-					targetDomain = rec.GetTargetField()
-				}
+				rd := rec.AsIMPORTTRANSFORM()
+				transformTable := rd.TransformTable
+				ttl := uint32(rd.TTL)
+				suffixstrip := rd.SuffixStrip
+				targetDomain := rd.TargetDomain
 				table, err := transform.DecodeTransformTable(transformTable)
 				if err != nil {
 					errs = append(errs, err)
@@ -579,8 +550,9 @@ func ValidateAndNormalizeConfig(config *models.DNSConfig) (errs []error) {
 	}
 
 	for _, d := range config.Domains {
+		identityFn := domainRecordIdentity(d)
 		// Check that CNAMES don't have to co-exist with any other records
-		errs = append(errs, checkCNAMEs(d)...)
+		errs = append(errs, checkCNAMEs(d, identityFn)...)
 		// Check that only one SOA record exist for a zone
 		errs = append(errs, checkMultipleSOAs(d)...)
 		// Check that if any advanced record types are used in a domain, every provider for that domain supports them
@@ -589,7 +561,7 @@ func ValidateAndNormalizeConfig(config *models.DNSConfig) (errs []error) {
 			errs = append(errs, err)
 		}
 		// Check for duplicates
-		errs = append(errs, checkDuplicates(d.Records)...)
+		errs = append(errs, checkDuplicates(d.Records, identityFn)...)
 		// Check for different TTLs under the same label
 		errs = append(errs, checkRecordSetHasMultipleTTLs(d.Records)...)
 		// Check for inconsistent R53 weighted routing metadata within a group
@@ -661,14 +633,57 @@ func checkAutoDNSSEC(dc *models.DomainConfig) (errs []error) {
 	return
 }
 
-func checkCNAMEs(dc *models.DomainConfig) (errs []error) {
+// recordIdentityString returns the string used to detect duplicate records.
+// It is the label, the rType, the RDATA and any provider-declared identity
+// text (for example DNSPod's record line).
+func recordIdentityString(r *models.RecordConfig, extra func(*models.RecordConfig) string) string {
+	id := fmt.Sprintf("%s %s %s", r.GetLabelFQDN(), r.Type, r.ComparableV3)
+	if x := providerIdentity(r, extra); x != "" {
+		id += " " + x
+	}
+	return id
+}
+
+// domainRecordIdentity returns the identity function declared by one of the
+// domain's DNS providers, or nil if none declares one.
+func domainRecordIdentity(d *models.DomainConfig) func(*models.RecordConfig) string {
+	for _, provider := range d.DNSProviderInstances {
+		if provider.ProviderType == "-" {
+			continue
+		}
+		if f := providers.GetRecordIdentity(provider.ProviderType); f != nil {
+			return f
+		}
+	}
+	return nil
+}
+
+// providerIdentity returns the provider-declared identity text for a record,
+// or "" when no provider declares one.
+func providerIdentity(r *models.RecordConfig, extra func(*models.RecordConfig) string) string {
+	if extra == nil {
+		return ""
+	}
+	return extra(r)
+}
+
+func checkCNAMEs(dc *models.DomainConfig, extra func(*models.RecordConfig) string) (errs []error) {
 	cnames := map[string]bool{}
 	proxiedCnames := map[string]bool{}
+	seenIdentity := map[string]bool{}
 	for _, r := range dc.Records {
 		if r.Type == "CNAME" {
-			if cnames[r.GetLabel()] {
+			// Without a provider-declared identity this is exactly the old
+			// rule: one CNAME per label. With one, two CNAMEs may share a
+			// label as long as the provider treats them as separate objects.
+			id := r.GetLabel()
+			if x := providerIdentity(r, extra); x != "" {
+				id += "|" + x
+			}
+			if seenIdentity[id] {
 				errs = append(errs, fmt.Errorf("%s: cannot have multiple CNAMEs with same name: %s", r.FilePos, r.GetLabelFQDN()))
 			}
+			seenIdentity[id] = true
 			cnames[r.GetLabel()] = true
 			if p, ok := r.Metadata["cloudflare_proxy"]; ok && (p == "on" || p == "full") {
 				proxiedCnames[r.GetLabel()] = true
@@ -706,10 +721,10 @@ func checkMultipleSOAs(dc *models.DomainConfig) (errs []error) {
 	return
 }
 
-func checkDuplicates(records []*models.RecordConfig) (errs []error) {
+func checkDuplicates(records models.Records, extra func(*models.RecordConfig) string) (errs []error) {
 	seen := make(map[string]*models.RecordConfig)
 	for _, r := range records {
-		diffable := fmt.Sprintf("%s %s %s", r.GetLabelFQDN(), r.Type, r.ComparableV3)
+		diffable := recordIdentityString(r, extra)
 
 		if seen[diffable] != nil {
 			errs = append(errs, fmt.Errorf("exact duplicate record found: %s", diffable))
@@ -719,7 +734,7 @@ func checkDuplicates(records []*models.RecordConfig) (errs []error) {
 	return errs
 }
 
-func checkRecordSetHasMultipleTTLs(records []*models.RecordConfig) (errs []error) {
+func checkRecordSetHasMultipleTTLs(records models.Records) (errs []error) {
 	// The RFCs say that all records at a particular recordset should have
 	// the same TTL.  Most providers don't care, and if they do the
 	// dnscontrol provider code usually picks the lowest TTL for all of them.
@@ -812,7 +827,7 @@ func commaSepInts(list []int) string {
 // checkR53WeightedGroupConsistency validates that all records sharing the same
 // label+type+set_identifier have identical weight and health_check_id, since
 // they map to a single Route 53 ResourceRecordSet.
-func checkR53WeightedGroupConsistency(records []*models.RecordConfig) (errs []error) {
+func checkR53WeightedGroupConsistency(records models.Records) (errs []error) {
 	type groupMeta struct {
 		weight      string
 		healthCheck string

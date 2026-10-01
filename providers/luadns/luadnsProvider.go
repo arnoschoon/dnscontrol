@@ -90,7 +90,7 @@ func (l *luadnsProvider) SetConversionObserver(observer providers.ConversionObse
 }
 
 // NewLuaDNS creates the provider.
-func NewLuaDNS(m map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
+func NewLuaDNS(m map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
 	if m["email"] == "" || m["apikey"] == "" {
 		return nil, errors.New("missing LuaDNS email or apikey")
 	}
@@ -139,7 +139,7 @@ func (l *luadnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Records
 	if err != nil {
 		return nil, err
 	}
-	existingRecords := make([]*models.RecordConfig, len(records))
+	existingRecords := make(models.Records, len(records))
 	for i := range records {
 		before := providers.BeginToRC(l.observer, "nativeToRecord", records[i])
 		newr, err := nativeToRecord(dc, records[i])
@@ -310,7 +310,7 @@ func nativeToRecord(dc *models.DomainConfig, r *api.Record) (*models.RecordConfi
 	return rc, err
 }
 
-func recordsToNative(rc []*models.RecordConfig) []*api.RR {
+func recordsToNative(rc models.Records) []*api.RR {
 	var rrs []*api.RR
 	for _, rec := range rc {
 		r := &api.RR{

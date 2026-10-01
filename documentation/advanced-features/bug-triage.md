@@ -1,4 +1,9 @@
-# Who to assign bugs to?
+# Bug Triage Process
+
+- [Who to assign bugs to](#who-to-assign-bugs-to)
+- [How bugs are classified](#how-bugs-are-classified)
+
+## Who to assign bugs to
 
 If an issue is related to a particular provider, assign it to
 the person responsible for the provider, as listed in
@@ -7,14 +12,13 @@ contributed providers".
 
 Otherwise leave it unassigned until someone grabs it.
 
-
-# How bugs are classified
+## How bugs are classified
 
 labels:
 
-* enhancement: New feature of improvement of existing feature
-* bug: feature works wrong or not as expected
+- enhancement: New feature of improvement of existing feature
+- bug: feature works wrong or not as expected
 
 priority:
 
-* maybe someday: Low priority
+- maybe someday: Low priority

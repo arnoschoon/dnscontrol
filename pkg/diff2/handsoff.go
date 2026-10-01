@@ -71,7 +71,7 @@ Here is how we intend to implement these features:
   * Take the list of existing records. If any match one of the IGNORE glob
       patterns, add it to the "ignored list".
   * If any item on the "ignored list" is also in "desired" (match on
-      label:rtype), output a warning (defeault) or declare an error (if
+      label:rtype), detail an error (default) or output a warning (if
       DISABLE_IGNORE_SAFETY_CHECK is true).
   * When we're done, add the "ignore list" records to desired.
 
@@ -281,7 +281,6 @@ func compileUnmanagedConfigs(configs []*models.UnmanagedConfig) error {
 
 // matchAny returns true if rec matches any of the uconfigs.
 func matchAny(uconfigs []*models.UnmanagedConfig, rec *models.RecordConfig) bool {
-	// fmt.Printf("DEBUG: matchAny(%s, %q, %q, %q)\n", models.DebugUnmanagedConfig(uconfigs), rec.NameFQDN, rec.Type, rec.GetTargetField())
 	for _, uc := range uconfigs {
 		if matchLabel(uc.LabelGlob, rec.GetLabel()) &&
 			matchType(uc.RTypeMap, rec.Type) &&
@@ -292,7 +291,7 @@ func matchAny(uconfigs []*models.UnmanagedConfig, rec *models.RecordConfig) bool
 	return false
 }
 
-func matchLabel(labelGlob glob.Glob, labelName string) bool {
+func matchLabel(labelGlob *glob.Pattern, labelName string) bool {
 	if labelGlob == nil {
 		return true
 	}
@@ -307,7 +306,7 @@ func matchType(typeMap map[string]struct{}, typeName string) bool {
 	return ok
 }
 
-func matchTarget(targetGlob glob.Glob, targetName string) bool {
+func matchTarget(targetGlob *glob.Pattern, targetName string) bool {
 	if targetGlob == nil {
 		return true
 	}

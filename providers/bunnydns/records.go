@@ -1,12 +1,14 @@
 package bunnydns
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 
 	"github.com/DNSControl/dnscontrol/v5/models"
 	"github.com/DNSControl/dnscontrol/v5/pkg/diff2"
 	"github.com/DNSControl/dnscontrol/v5/pkg/printer"
+	"github.com/DNSControl/dnscontrol/v5/pkg/providers"
 )
 
 func (b *bunnydnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Records, error) {
@@ -38,7 +40,9 @@ func (b *bunnydnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Recor
 			continue
 		}
 
+		before := providers.BeginToRC(b.observer, "toRecordConfig", nativeRec)
 		rc, err := toRecordConfig(dc, nativeRec)
+		providers.EndToRC(b.observer, "toRecordConfig", before, nativeRec, models.Records{rc}, err)
 		if err != nil {
 			return nil, err
 		}
@@ -49,7 +53,6 @@ func (b *bunnydnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Recor
 }
 
 func (b *bunnydnsProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, existing models.Records) ([]*models.Correction, int, error) {
-	// Bunny DNS never returns NS records for the apex domain, so these are artificially added when retrieving records.
 	// As no TTL can be configured or retrieved for these NS records, we set it to 0 to avoid unnecessary updates.
 	for _, rc := range dc.Records {
 		if rc.Name == "@" && rc.Type == "NS" {
@@ -61,7 +64,7 @@ func (b *bunnydnsProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, ex
 		}
 
 		if rc.Type == "ALIAS" {
-			rc.ChangeType("CNAME", dc.Name)
+			rc.ChangeTypeToCNAME(dc, rc.AsALIAS().Target)
 		}
 	}
 
@@ -70,7 +73,7 @@ func (b *bunnydnsProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, ex
 		return nil, 0, err
 	}
 
-	instructions, actualChangeCount, err := diff2.ByRecord(existing, dc, nil)
+	instructions, actualChangeCount, err := diff2.ByRecord(existing, dc, comparableFunc)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -112,7 +115,10 @@ func (b *bunnydnsProvider) mkCreateCorrection(zoneID int64, newRec *models.Recor
 	return &models.Correction{
 		Msg: msg,
 		F: func() error {
+			input := models.Records{newRec}
+			before := providers.BeginToNative(b.observer, "fromRecordConfig", input)
 			desired, err := fromRecordConfig(newRec)
+			providers.EndToNative(b.observer, "fromRecordConfig", before, input, desired, err)
 			if err != nil {
 				return err
 			}
@@ -127,7 +133,10 @@ func (b *bunnydnsProvider) mkChangeCorrection(zoneID int64, oldRec, newRec *mode
 		Msg: msg,
 		F: func() error {
 			existingID := oldRec.Original.(int64)
+			input := models.Records{newRec}
+			before := providers.BeginToNative(b.observer, "fromRecordConfig", input)
 			desired, err := fromRecordConfig(newRec)
+			providers.EndToNative(b.observer, "fromRecordConfig", before, input, desired, err)
 			if err != nil {
 				return err
 			}
@@ -145,4 +154,34 @@ func (b *bunnydnsProvider) mkDeleteCorrection(zoneID int64, oldRec *models.Recor
 			return b.deleteRecord(zoneID, existingID)
 		},
 	}
+}
+
+func comparableFunc(rec *models.RecordConfig) string {
+	var metadataKeys []string
+	switch rec.Type {
+	case "A", "AAAA":
+		metadataKeys = []string{metaSmartRoutingType, metaGeolocationLatitude, metaGeolocationLongitude, metaLatencyZone, metaMonitorType}
+	case "CNAME":
+		metadataKeys = []string{metaMonitorType}
+	default:
+		return ""
+	}
+
+	metadata := make(map[string]string)
+	for _, key := range metadataKeys {
+		if value, ok := rec.Metadata[key]; ok {
+			metadata[key] = value
+		}
+	}
+	if len(metadata) == 0 {
+		return ""
+	}
+
+	result, err := json.Marshal(metadata)
+	if err != nil {
+		printer.Warnf("BUNNY_DNS: Cannot serialize metadata of record %s", rec)
+		return ""
+	}
+
+	return string(result)
 }

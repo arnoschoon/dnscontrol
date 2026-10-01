@@ -28,7 +28,7 @@ func (api *packetframeProvider) SetConversionObserver(observer providers.Convers
 }
 
 // newPacketframe creates the provider.
-func newPacketframe(m map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
+func newPacketframe(m map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
 	if m["token"] == "" {
 		return nil, errors.New("missing Packetframe token")
 	}
@@ -58,7 +58,7 @@ var features = providers.DocumentationNotes{
 
 func init() {
 	const providerName = "PACKETFRAME"
-	const providerMaintainer = "@hamptonmoore"
+	const providerMaintainer = "NEEDS VOLUNTEER"
 	fns := providers.DspFuncs{
 		Initializer:   newPacketframe,
 		RecordAuditor: AuditRecords,

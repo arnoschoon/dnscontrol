@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -30,7 +29,9 @@ Info required in `creds.json`:
 // Allowed values from the Linode API
 // https://www.linode.com/docs/api/domains/#domains-list__responses
 var allowedTTLValues = []uint32{
-	0,       // Default, currently 1209600 seconds
+	0,       // Default - control by default TTL for the zone
+	30,      // 30 seconds
+	120,     // 2 minutes
 	300,     // 5 minutes
 	3600,    // 1 hour
 	7200,    // 2 hours
@@ -44,8 +45,6 @@ var allowedTTLValues = []uint32{
 	1209600, // 2 weeks
 	2419200, // 4 weeks
 }
-
-var srvRegexp = regexp.MustCompile(`^_(?P<Service>\w+)\.\_(?P<Protocol>\w+)$`)
 
 // linodeProvider is the handle for this provider.
 type linodeProvider struct {
@@ -63,7 +62,7 @@ var defaultNameServerNames = []string{
 }
 
 // NewLinode creates the provider.
-func NewLinode(m map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
+func NewLinode(m map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
 	if m["token"] == "" {
 		return nil, errors.New("missing Linode token")
 	}
@@ -277,7 +276,7 @@ func (api *linodeProvider) getRecordsForDomain(domainID int, dc *models.DomainCo
 		return nil, err
 	}
 
-	existingRecords := make([]*models.RecordConfig, len(records), len(records)+len(defaultNameServerNames))
+	existingRecords := make(models.Records, len(records), len(records)+len(defaultNameServerNames))
 	for i := range records {
 		existingRecords[i], err = toRc(dc, &records[i])
 		if err != nil {
@@ -356,13 +355,14 @@ func toReq(dc *models.DomainConfig, rc *models.RecordConfig) (*recordEditRequest
 		req.Weight = int(f.Weight)
 		req.Port = int(f.Port)
 
-		// From softlayer provider
-		// This is to support SRV, it doesn't work yet for Linode
-		result := srvRegexp.FindStringSubmatch(req.Name)
-		if len(result) != 3 {
-			return nil, fmt.Errorf("SRV Record must match format \"_service._protocol\" not %s", req.Name)
+		// The label has already been validated by AuditRecords().
+		// NB(tlim): The fact that Linode expects the client to do this
+		// extraction is a good example of how not to design a protocol. It's
+		// asking the same data to be sent twice, which multiplies the edge cases.
+		serviceName, protocol, err := extractSrvLabelValues(req.Name)
+		if err != nil {
+			return nil, err
 		}
-		serviceName, protocol := result[1], strings.ToLower(result[2])
 		req.Protocol = protocol
 		req.Service = serviceName
 

@@ -12,7 +12,7 @@ import (
 )
 
 type AKAMAICDN struct {
-	Target string
+	Target string `dnscontrol:"targethost"`
 }
 
 func (rd AKAMAICDN) Len() int {
@@ -33,8 +33,12 @@ func MakeAKAMAICDN(origin string, _ map[string]string, isEnabled nrc.Flags, args
 	if isEnabled.TargetIsFqdnNoDot {
 		origin = "."
 	}
+	targetHost0, err := mustbe.TargetHost(origin, isEnabled, args[0])
+	if err != nil {
+		return nil, err
+	}
 	return AKAMAICDN{
-		Target: mustbe.TargetHost(origin, isEnabled, args[0]),
+		Target: targetHost0,
 	}, nil
 }
 
