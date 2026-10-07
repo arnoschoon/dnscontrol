@@ -5,8 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/DNSControl/dnscontrol/v4/models"
-	dnsutilv1 "github.com/miekg/dns/dnsutil"
+	dnsv2 "codeberg.org/miekg/dns"
+	dnsrdatav2 "codeberg.org/miekg/dns/rdata"
+	"github.com/DNSControl/dnscontrol/v5/models"
 )
 
 // recordType is the integer record-type discriminator used by the CloudPress
@@ -110,9 +111,6 @@ func isSupported(t recordType) bool {
 	}
 }
 
-func u16(v uint16) *uint16 { return &v }
-func u8(v uint8) *uint8     { return &v }
-
 func deref16(p *uint16) uint16 {
 	if p == nil {
 		return 0
@@ -134,20 +132,29 @@ func fromRecordConfig(rc *models.RecordConfig) *record {
 	r := record{
 		RecordType: recordTypeFromString(rc.Type),
 		Name:       rc.GetLabelFQDN(),
-		Value:      rc.GetTargetField(),
 		TTL:        rc.TTL,
 	}
 
 	switch r.RecordType {
 	case recordTypeSRV:
-		r.Priority = u16(rc.SrvPriority)
-		r.Weight = u16(rc.SrvWeight)
-		r.Port = u16(rc.SrvPort)
+		rd := rc.GetRDATA().(dnsrdatav2.SRV)
+		r.Priority = &rd.Priority
+		r.Weight = &rd.Weight
+		r.Port = &rd.Port
+		r.Value = rd.Target
 	case recordTypeMX:
-		r.Priority = u16(rc.MxPreference)
+		rd := rc.GetRDATA().(dnsrdatav2.MX)
+		r.Priority = &rd.Preference
+		r.Value = rd.Mx
 	case recordTypeCAA:
-		r.Flags = u8(rc.CaaFlag)
-		r.Tag = rc.CaaTag
+		rd := rc.GetRDATA().(dnsrdatav2.CAA)
+		r.Flags = &rd.Flag
+		r.Tag = rd.Tag
+		r.Value = rd.Value
+	case recordTypeTXT:
+		r.Value = rc.GetTargetTXTJoined()
+	default:
+		r.Value = rc.GetRDATA().String()
 	}
 
 	// CloudPress stores hostnames without a trailing dot, so strip it. The
@@ -161,46 +168,46 @@ func fromRecordConfig(rc *models.RecordConfig) *record {
 }
 
 // toRecordConfig converts a CloudPress record into a DNSControl record.
-func toRecordConfig(domain string, r *record) (*models.RecordConfig, error) {
-	rc := models.RecordConfig{
-		Type:     recordTypeToString(r.RecordType),
-		TTL:      r.TTL,
-		Original: r,
-	}
+func toRecordConfig(dc *models.DomainConfig, r *record) (*models.RecordConfig, error) {
+	rtype := recordTypeToString(r.RecordType)
 
 	// CloudPress returns the short label for sub-records ("www") and the bare
 	// zone name for the apex ("example.com"). Normalize both to a DNSControl
 	// label ("@" for the apex).
 	label := r.Name
 	switch {
-	case label == domain:
+	case label == dc.Name:
 		label = "@"
-	case strings.HasSuffix(label, "."+domain):
-		label = strings.TrimSuffix(label, "."+domain)
+	case strings.HasSuffix(label, "."+dc.Name):
+		label = strings.TrimSuffix(label, "."+dc.Name)
 	}
-	rc.SetLabel(label, domain)
+	label = dc.LabelFromShort(label)
 
 	// CloudPress returns hostnames without a trailing dot. Add the dot back so
 	// the value is an absolute target DNSControl can parse.
 	value := r.Value
 	if slices.Contains(fqdnTypes, r.RecordType) && !strings.HasSuffix(value, ".") {
-		value = dnsutilv1.AddOrigin(value+".", domain)
+		value += "."
 	}
 
+	var rc *models.RecordConfig
 	var err error
-	switch rc.Type {
+	switch rtype {
 	case "CAA":
-		err = rc.SetTargetCAA(deref8(r.Flags), r.Tag, value)
+		rc, err = dc.NewRecordConfig(label, r.TTL, dnsv2.TypeCAA, deref8(r.Flags), r.Tag, value)
 	case "MX":
-		err = rc.SetTargetMX(deref16(r.Priority), value)
+		rc, err = dc.NewRecordConfig(label, r.TTL, dnsv2.TypeMX, deref16(r.Priority), value)
 	case "SRV":
-		err = rc.SetTargetSRV(deref16(r.Priority), deref16(r.Weight), deref16(r.Port), value)
+		rc, err = dc.NewRecordConfig(label, r.TTL, dnsv2.TypeSRV, deref16(r.Priority), deref16(r.Weight), deref16(r.Port), value)
+	case "TXT":
+		rc, err = dc.NewRecordConfig(label, r.TTL, dnsv2.TypeTXT, value)
 	default:
-		err = rc.PopulateFromStringFunc(rc.Type, value, domain, nil)
+		rc, err = dc.NewRecordConfigParse(label, r.TTL, rtype, value)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	return &rc, nil
+	rc.Original = r
+	return rc, nil
 }

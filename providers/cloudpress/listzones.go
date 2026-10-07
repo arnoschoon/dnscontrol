@@ -1,6 +1,6 @@
 package cloudpress
 
-import "github.com/DNSControl/dnscontrol/v4/pkg/printer"
+import "github.com/DNSControl/dnscontrol/v5/pkg/printer"
 
 // ListZones returns the list of zone names in the account.
 func (c *cloudpressProvider) ListZones() ([]string, error) {

@@ -1,6 +1,6 @@
 package cloudpress
 
-import "github.com/DNSControl/dnscontrol/v4/models"
+import "github.com/DNSControl/dnscontrol/v5/models"
 
 // getDNSSECCorrections returns corrections to align the zone's DNSSEC state with
 // the AutoDNSSEC setting from the domain config.

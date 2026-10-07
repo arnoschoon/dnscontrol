@@ -77,13 +77,6 @@
     "api_key": "$BUNNY_DNS_API_KEY",
     "domain": "$BUNNY_DNS_DOMAIN"
   },
-  "CLOUDPRESS": {
-    "TYPE": "CLOUDPRESS",
-    "base_url": "$CLOUDPRESS_BASE_URL",
-    "api_token": "$CLOUDPRESS_API_TOKEN",
-    "account_id": "$CLOUDPRESS_ACCOUNT_ID",
-    "domain": "$CLOUDPRESS_DOMAIN"
-  },
   "CLOUDFLAREAPI": {
     "TYPE": "CLOUDFLAREAPI",
     "accountid": "$CLOUDFLAREAPI_ACCOUNTID",
@@ -105,6 +98,13 @@
     "auth-password": "$CLOUDNS_AUTH_PASSWORD",
     "domain": "$CLOUDNS_DOMAIN",
     "sub-auth-id": "$CLOUDNS_SUB_AUTH_ID"
+  },
+  "CLOUDPRESS": {
+    "TYPE": "CLOUDPRESS",
+    "account_id": "$CLOUDPRESS_ACCOUNT_ID",
+    "api_token": "$CLOUDPRESS_API_TOKEN",
+    "base_url": "$CLOUDPRESS_BASE_URL",
+    "domain": "$CLOUDPRESS_DOMAIN"
   },
   "CNR": {
     "TYPE": "CNR",

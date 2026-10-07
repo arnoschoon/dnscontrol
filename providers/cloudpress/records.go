@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/DNSControl/dnscontrol/v4/models"
-	"github.com/DNSControl/dnscontrol/v4/pkg/diff2"
-	"github.com/DNSControl/dnscontrol/v4/pkg/printer"
+	dnsv2 "codeberg.org/miekg/dns"
+	"github.com/DNSControl/dnscontrol/v5/models"
+	"github.com/DNSControl/dnscontrol/v5/pkg/diff2"
+	"github.com/DNSControl/dnscontrol/v5/pkg/printer"
 )
 
 // GetZoneRecords downloads the records of a zone and returns them as RecordConfigs.
@@ -38,7 +39,7 @@ func (c *cloudpressProvider) GetZoneRecords(dc *models.DomainConfig) (models.Rec
 			continue
 		}
 
-		rc, err := toRecordConfig(z.Name, nativeRec)
+		rc, err := toRecordConfig(dc, nativeRec)
 		if err != nil {
 			return nil, err
 		}
@@ -51,11 +52,11 @@ func (c *cloudpressProvider) GetZoneRecords(dc *models.DomainConfig) (models.Rec
 	// here (with TTL 0) to avoid a spurious diff. They carry an empty Original,
 	// so any attempt to modify or delete them is rejected in the corrections.
 	for _, ns := range full.Nameservers {
-		rc := &models.RecordConfig{Type: "NS", TTL: 0, Original: &record{}}
-		rc.SetLabel("@", z.Name)
-		if err := rc.SetTarget(ns + "."); err != nil {
+		rc, err := dc.NewRecordConfig("@", 0, dnsv2.TypeNS, ns+".")
+		if err != nil {
 			return nil, err
 		}
+		rc.Original = &record{}
 		recs = append(recs, rc)
 	}
 

@@ -3,13 +3,16 @@ package cloudpress
 import (
 	"testing"
 
-	"github.com/DNSControl/dnscontrol/v4/models"
+	dnsv2 "codeberg.org/miekg/dns"
+	dnsrdatav2 "codeberg.org/miekg/dns/rdata"
+	"github.com/DNSControl/dnscontrol/v5/models"
 )
 
+//go:fix inline
+
 func TestFromRecordConfigStripsTrailingDot(t *testing.T) {
-	rc := &models.RecordConfig{Type: "CNAME", TTL: 300}
-	rc.SetLabelFromFQDN("www.example.com", "example.com")
-	rc.MustSetTarget("target.example.com.")
+	dc := models.MustNewDomainConfig("example.com")
+	rc := dc.MustNewRecordConfig("www", 300, dnsv2.TypeCNAME, "target.example.com.")
 
 	r := fromRecordConfig(rc)
 	if r.RecordType != recordTypeCNAME {
@@ -25,11 +28,8 @@ func TestFromRecordConfigStripsTrailingDot(t *testing.T) {
 }
 
 func TestFromRecordConfigMX(t *testing.T) {
-	rc := &models.RecordConfig{Type: "MX", TTL: 3600}
-	rc.SetLabelFromFQDN("example.com", "example.com")
-	if err := rc.SetTargetMX(10, "mail.example.com."); err != nil {
-		t.Fatal(err)
-	}
+	dc := models.MustNewDomainConfig("example.com")
+	rc := dc.MustNewRecordConfig("@", 3600, dnsv2.TypeMX, uint16(10), "mail.example.com.")
 
 	r := fromRecordConfig(rc)
 	if r.Priority == nil || *r.Priority != 10 {
@@ -48,7 +48,7 @@ func TestToRecordConfigApex(t *testing.T) {
 	// CloudPress returns the bare zone name for apex records.
 	rec := &record{RecordType: recordTypeTXT, Name: "example.com", Value: "hello", TTL: 300}
 
-	rc, err := toRecordConfig("example.com", rec)
+	rc, err := toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestToRecordConfigAddsOrigin(t *testing.T) {
 		TTL:        300,
 	}
 
-	rc, err := toRecordConfig("example.com", rec)
+	rc, err := toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
@@ -86,17 +86,18 @@ func TestToRecordConfigSRV(t *testing.T) {
 		Name:       "_sip._tcp",
 		Value:      "sip.example.com",
 		TTL:        300,
-		Priority:   u16(10),
-		Weight:     u16(20),
-		Port:       u16(5060),
+		Priority:   new(uint16(10)),
+		Weight:     new(uint16(20)),
+		Port:       new(uint16(5060)),
 	}
 
-	rc, err := toRecordConfig("example.com", rec)
+	rc, err := toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
-	if rc.SrvPriority != 10 || rc.SrvWeight != 20 || rc.SrvPort != 5060 {
-		t.Fatalf("unexpected SRV fields: %d %d %d", rc.SrvPriority, rc.SrvWeight, rc.SrvPort)
+	rd := rc.GetRDATA().(dnsrdatav2.SRV)
+	if rd.Priority != 10 || rd.Weight != 20 || rd.Port != 5060 || rd.Target != "sip.example.com." {
+		t.Fatalf("unexpected SRV fields: %d %d %d %s", rd.Priority, rd.Weight, rd.Port, rd.Target)
 	}
 }
 
