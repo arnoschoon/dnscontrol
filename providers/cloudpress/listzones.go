@@ -1,6 +1,9 @@
 package cloudpress
 
-import "github.com/DNSControl/dnscontrol/v5/pkg/printer"
+import (
+	"github.com/DNSControl/dnscontrol/v5/models"
+	"github.com/DNSControl/dnscontrol/v5/pkg/printer"
+)
 
 // ListZones returns the list of zone names in the account.
 func (c *cloudpressProvider) ListZones() ([]string, error) {
@@ -18,7 +21,8 @@ func (c *cloudpressProvider) ListZones() ([]string, error) {
 }
 
 // EnsureZoneExists creates the zone if it does not already exist.
-func (c *cloudpressProvider) EnsureZoneExists(domain string, metadata map[string]string) error {
+func (c *cloudpressProvider) EnsureZoneExists(dc *models.DomainConfig) error {
+	domain := dc.Name
 	if _, err := c.findZoneByDomain(domain); err == nil {
 		return nil
 	}
@@ -28,6 +32,6 @@ func (c *cloudpressProvider) EnsureZoneExists(domain string, metadata map[string
 		return err
 	}
 
-	printer.Warnf("CLOUDPRESS: Added zone %s with ID %d\n", domain, z.ID)
+	printer.Warnf("CLOUDPRESS: Added zone %s with ID %s\n", domain, z.ID)
 	return nil
 }

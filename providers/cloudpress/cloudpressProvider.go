@@ -9,20 +9,6 @@ import (
 	"github.com/DNSControl/dnscontrol/v5/pkg/providers"
 )
 
-var features = providers.DocumentationNotes{
-	// The default for unlisted capabilities is 'Cannot'.
-	// See providers/capabilities.go for the entire list of capabilities.
-	providers.CanAutoDNSSEC:          providers.Can(),
-	providers.CanConcur:              providers.Unimplemented(),
-	providers.CanGetZones:            providers.Can(),
-	providers.CanUseCAA:              providers.Can(),
-	providers.CanUsePTR:              providers.Can(),
-	providers.CanUseSRV:              providers.Can(),
-	providers.DocCreateDomains:       providers.Can(),
-	providers.DocDualHost:            providers.Cannot(),
-	providers.DocOfficiallySupported: providers.Cannot(),
-}
-
 type cloudpressProvider struct {
 	apiToken  string
 	baseURL   string
@@ -38,21 +24,10 @@ func (c *cloudpressProvider) SetConversionObserver(observer providers.Conversion
 }
 
 func init() {
-	const providerName = "CLOUDPRESS"
-	const providerMaintainer = "@arnoschoon"
-	fns := providers.DspFuncs{
-		Initializer:   newCloudpress,
-		RecordAuditor: AuditRecords,
-	}
-	providers.RegisterDomainServiceProviderType(providerName, fns, features)
-	providers.RegisterMaintainer(providerName, providerMaintainer)
-
-	providers.RegisterCredsMetadata(providerName, providers.CredsMetadata{
-		DisplayName: "CloudPress",
-		Kind:        providers.KindDNS,
-		DocsURL:     "https://docs.dnscontrol.org/provider/cloudpress",
-		PortalURL:   "https://docs.cloudpress.com/API/api-keys/",
-		Fields: []providers.CredsField{
+	providers.Register[*cloudpressProvider]("CLOUDPRESS", providers.Definition{
+		FriendlyName: "CloudPress",
+		PortalURL:    "https://docs.cloudpress.com/API/api-keys/",
+		CredFields: []providers.CredsField{
 			{
 				Key:      "base_url",
 				Label:    "API base URL",
@@ -72,13 +47,23 @@ func init() {
 				Help:  "Account ID sent as the X-Auth-Account header. Required when creating new zones with a user API key.",
 			},
 		},
+		Maintainer: "@arnoschoon",
+		SupportedTypes: []string{
+			"Basic8",
+			"PTR",
+		},
+		CanAutoDNSSEC:          providers.Can(),
+		CanConcur:              providers.Unimplemented(),
+		DocDualHost:            providers.Cannot(),
+		DocOfficiallySupported: providers.Cannot(),
 	})
 }
 
-func newCloudpress(settings map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
+// Initialize initializes a fresh provider instance.
+func (c *cloudpressProvider) Initialize(settings map[string]string, _ json.RawMessage, options *providers.CreateOptions) error {
 	baseURL := strings.TrimRight(settings["base_url"], "/")
 	if baseURL == "" {
-		return nil, errors.New("missing CLOUDPRESS base_url")
+		return errors.New("missing CLOUDPRESS base_url")
 	}
 	// The credential's api-url may already include the "/api" path; the request
 	// helper adds "/api/..." itself, so normalize to the bare scheme+host.
@@ -86,14 +71,16 @@ func newCloudpress(settings map[string]string, _ json.RawMessage) (providers.DNS
 
 	apiToken := settings["api_token"]
 	if apiToken == "" {
-		return nil, errors.New("missing CLOUDPRESS api_token")
+		return errors.New("missing CLOUDPRESS api_token")
 	}
 
-	return &cloudpressProvider{
+	*c = cloudpressProvider{
 		baseURL:   baseURL,
 		apiToken:  apiToken,
 		accountID: settings["account_id"],
-	}, nil
+	}
+	c.SetConversionObserver(options.WithDefaults().ConversionObserver)
+	return nil
 }
 
 // GetNameservers returns the nameservers for a domain.

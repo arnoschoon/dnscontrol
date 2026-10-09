@@ -8,7 +8,7 @@ import (
 // AuditRecords returns a list of errors corresponding to the records
 // that aren't supported by this provider. If all records are
 // supported, an empty list is returned.
-func AuditRecords(records models.Records) []error {
+func (*cloudpressProvider) AuditRecords(records models.Records) []error {
 	a := rejectif.Auditor{}
 
 	// Last verified 2026-06-22 against https://my.cloudpress.com
