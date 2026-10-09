@@ -28,6 +28,13 @@ type cloudpressProvider struct {
 	baseURL   string
 	accountID string
 	zones     map[string]*zone
+	observer  providers.ConversionObserver
+}
+
+// SetConversionObserver lets the integration tests record the conversions
+// between native and DNSControl records (golden files).
+func (c *cloudpressProvider) SetConversionObserver(observer providers.ConversionObserver) {
+	c.observer = observer
 }
 
 func init() {

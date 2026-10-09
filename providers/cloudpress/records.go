@@ -8,6 +8,7 @@ import (
 	"github.com/DNSControl/dnscontrol/v5/models"
 	"github.com/DNSControl/dnscontrol/v5/pkg/diff2"
 	"github.com/DNSControl/dnscontrol/v5/pkg/printer"
+	"github.com/DNSControl/dnscontrol/v5/pkg/providers"
 )
 
 // GetZoneRecords downloads the records of a zone and returns them as RecordConfigs.
@@ -39,7 +40,9 @@ func (c *cloudpressProvider) GetZoneRecords(dc *models.DomainConfig) (models.Rec
 			continue
 		}
 
+		before := providers.BeginToRC(c.observer, "toRecordConfig", nativeRec)
 		rc, err := toRecordConfig(dc, nativeRec)
+		providers.EndToRC(c.observer, "toRecordConfig", before, nativeRec, models.Records{rc}, err)
 		if err != nil {
 			return nil, err
 		}
@@ -106,11 +109,21 @@ func (c *cloudpressProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, 
 	return corrections, actualChangeCount, nil
 }
 
+// toNative converts rc with fromRecordConfig and reports the conversion to the
+// observer, if any.
+func (c *cloudpressProvider) toNative(rc *models.RecordConfig) *record {
+	input := models.Records{rc}
+	before := providers.BeginToNative(c.observer, "fromRecordConfig", input)
+	desired := fromRecordConfig(rc)
+	providers.EndToNative(c.observer, "fromRecordConfig", before, input, desired, nil)
+	return desired
+}
+
 func (c *cloudpressProvider) mkCreateCorrection(zoneID string, newRec *models.RecordConfig, msg string) *models.Correction {
 	return &models.Correction{
 		Msg: msg,
 		F: func() error {
-			return c.createRecord(zoneID, fromRecordConfig(newRec))
+			return c.createRecord(zoneID, c.toNative(newRec))
 		},
 	}
 }
@@ -123,7 +136,7 @@ func (c *cloudpressProvider) mkChangeCorrection(zoneID string, oldRec, newRec *m
 			if existingID == "" {
 				return errors.New("CLOUDPRESS: cannot change record without an ID")
 			}
-			return c.modifyRecord(zoneID, existingID, fromRecordConfig(newRec))
+			return c.modifyRecord(zoneID, existingID, c.toNative(newRec))
 		},
 	}
 }
